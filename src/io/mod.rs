@@ -1,5 +1,4 @@
-use core::slice;
-use ndarray::{Array2, Array3};
+use ndarray::Array2;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::mem;
 fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
@@ -11,12 +10,11 @@ fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
 fn parse_data(reshaped_data: &Vec<Vec<u8>>, index: usize, count: usize) -> Vec<u16> {
     let mut data = Vec::with_capacity(count);
     for i in 0..count {
-        let appened = (reshaped_data[i][index] as u16) + (reshaped_data[i][index + 1] as u16);
+        let appened = (reshaped_data[i][index] as u16) + (reshaped_data[i][index + 1] as u16) * 256;
         data.push(appened);
     }
     data
 }
-#[derive(Debug)]
 struct TempDtype {
     header: [u8; 128],
     r: Vec<u8>,
@@ -47,7 +45,7 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
         reshaped_vec.push(row.to_vec());
     }
 
-    let radial_num: Vec<u16> = parse_data(&reshaped_vec, 38, count); // 溢出了......
+    let radial_num: Vec<u16> = parse_data(&reshaped_vec, 38, count);
     let el_num: Vec<u16> = parse_data(&reshaped_vec, 44, count);
     let first_gate_r: Vec<u16> = parse_data(&reshaped_vec, 46, count);
     let first_gate_v: Vec<u16> = parse_data(&reshaped_vec, 48, count);
@@ -55,7 +53,9 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
     let gate_length_v: Vec<u16> = parse_data(&reshaped_vec, 52, count);
     let gate_num_r: Vec<u16> = parse_data(&reshaped_vec, 54, count);
     let gate_num_v: Vec<u16> = parse_data(&reshaped_vec, 56, count);
-
+    let r_pointer = parse_data(&reshaped_vec, 64, count);
+    let v_pointer = parse_data(&reshaped_vec, 66, count);
+    let w_pointer = parse_data(&reshaped_vec, 66, count);
     let elevation: Vec<f64> = (0..count)
         .map(|i| {
             let el = (reshaped_vec[i][42] as u16 + (reshaped_vec[i][43] as u16) * 256) as f64 * con;
@@ -87,18 +87,40 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
         gnv.push(gate_num_v[i]);
     }
 
-    let mut out_data: Vec<(Array3<u8>, Vec<f32>)> = Vec::new();
+    let mut out_data: Vec<(f64, f64, f64, Vec<f64>)> = Vec::with_capacity(count);
+
+    for i in 0..count {
+        let el = elevation[i];
+        let az = azimuth[i];
+        let mut distance = 0.0;
+        let mut data = Vec::new(); //REF VEL SW...
+
+        for k in 0..gate_num_r[i] {
+            let mut point = r_pointer[i] + k;
+            distance = first_gate_r[i] as f64 + k as f64 * gate_length_r[i] as f64;
+            data.push(ref_cal(reshaped_vec[i][point as usize] as f64));
+        }
+        out_data.push((el, az, distance, data));
+    }
+    // let mut test = out_data.clone();
+    // println!("{:?}", test[1]);
+    // debug
     let diff_b = b.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
     let mut idx = 0;
     for (bidx, (rnum, vnum)) in diff_b.iter().zip(gnr.iter().zip(gnv.iter())) {
-        let buffer: Vec<Vec<u8>> = reshaped_vec.clone();
         let temp_dtype = TempDtype::new(*rnum as usize, *vnum as usize, 2432);
         idx += 1;
-        println!(
-            "bidx: {}, rnum: {}, vnum: {}, idx: {}",
-            bidx, rnum, vnum, idx
-        ); //debug
+        //println!(
+        //   "bidx: {}, rnum: {}, vnum: {}, idx: {}",
+        //    bidx, rnum, vnum, idx
+        //);
     }
 
     Ok(())
+}
+
+fn ref_cal(refl: f64) -> f64 {
+    let cacl = (refl - 2.0) / 2.0 - 32.0;
+    let refl_cal = if cacl >= 0.0 { cacl } else { 0.0 };
+    refl_cal
 }
