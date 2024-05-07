@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::f64::consts::{PI};
 
 fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
     // numpy.reshape
@@ -78,7 +78,7 @@ pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
         let v: Vec<f64>;
         let s: Vec<f64>;
         if *rnum != 0 {
-            r = f[_header_size + 1..*rnum as usize + _header_size + 1]
+            r = f[_header_size + 1..*rnum as usize + _header_size] // length?
                 .to_vec()
                 .iter()
                 .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
@@ -88,7 +88,7 @@ pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
             r = vec![0; *rnum as usize].iter().map(|&x| x as f64).collect();
         };
         if dv == 2 && *vnum != 0 {
-            v = f[_header_size + 1..*vnum as usize + _header_size + 1]
+            v = f[_header_size + 1..*vnum as usize + _header_size] // length?
                 .to_vec()
                 .iter()
                 .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
@@ -97,7 +97,6 @@ pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
         } else {
             v = vec![0; *vnum as usize].iter().map(|&x| x as f64).collect();
         };
-        //let v =
         out_data.resize(idx + 1, HashMap::new());
         out_data[idx].insert("REF".to_string(), r);
         out_data[idx].insert("VEL".to_string(), v);
@@ -113,11 +112,4 @@ pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
     }
     println!("Read End");
     out_data
-}
-fn parse_u32(bytes: &[u8]) -> u32 {
-    u32::from_le_bytes(bytes.try_into().unwrap())
-}
-
-fn parse_u16(bytes: &[u8]) -> u16 {
-    u16::from_le_bytes(bytes.try_into().unwrap())
 }
