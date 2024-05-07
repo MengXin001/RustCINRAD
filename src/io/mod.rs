@@ -1,6 +1,7 @@
 use ndarray::Array2;
+use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom};
-use std::mem;
+
 fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
     // numpy.reshape
     assert_eq!(data.len(), rows * cols);
@@ -15,27 +16,36 @@ fn parse_data(reshaped_data: &Vec<Vec<u8>>, index: usize, count: usize) -> Vec<u
     }
     data
 }
-struct TempDtype {
-    header: [u8; 128],
-    r: Vec<u8>,
-    v: Vec<u8>,
-    s: Vec<u8>,
-    res: Vec<u8>,
+struct S_Info {
+    time: u32,
+    day: u16,
+    unambiguous_distance: u16,
+    azimuth: u16,
+    radial_num: u16,
+    radial_state: u16,
+    elevation: u16,
+    el_num: u16,
+    first_gate_r: u16,
+    first_gate_v: u16,
+    gate_length_r: u16,
+    gate_length_v: u16,
+    gate_num_r: u16,
+    gate_num_v: u16,
+    sector_num: u16,
+    system_coff: u32,
+    r_pointer: u16,
+    v_pointer: u16,
+    w_pointer: u16,
+    v_reso: u16,
+    vcp_mode: u16,
+    res2: [u16; 4],
+    r_pointer_2: u16,
+    v_pointer_2: u16,
+    w_pointer_2: u16,
+    nyquist_vel: u16,
 }
 
-impl TempDtype {
-    fn new(rnum: usize, vnum: usize, size: usize) -> Self {
-        TempDtype {
-            header: [0; 128],
-            r: vec![0; rnum],
-            v: vec![0; vnum],
-            s: vec![0; vnum],
-            res: vec![0; size - 128 - rnum - vnum * 2],
-        }
-    }
-}
-
-pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
+pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
     const con: f64 = (180.0 / 4096.0) * 0.125;
     let mut data = std::fs::read(path).expect("文件读取失败");
     let count: usize = data.len() / 2432; // SAB
@@ -44,18 +54,16 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
     for row in reshaped.axis_iter(ndarray::Axis(0)) {
         reshaped_vec.push(row.to_vec());
     }
-
+    // Rebuild todo start
     let radial_num: Vec<u16> = parse_data(&reshaped_vec, 38, count);
-    let el_num: Vec<u16> = parse_data(&reshaped_vec, 44, count);
-    let first_gate_r: Vec<u16> = parse_data(&reshaped_vec, 46, count);
-    let first_gate_v: Vec<u16> = parse_data(&reshaped_vec, 48, count);
     let gate_length_r: Vec<u16> = parse_data(&reshaped_vec, 50, count);
     let gate_length_v: Vec<u16> = parse_data(&reshaped_vec, 52, count);
+    let Rreso = gate_length_r[0] / 1000;
+    let Vreso = gate_length_v[0] / 1000;
     let gate_num_r: Vec<u16> = parse_data(&reshaped_vec, 54, count);
     let gate_num_v: Vec<u16> = parse_data(&reshaped_vec, 56, count);
-    let r_pointer = parse_data(&reshaped_vec, 64, count);
-    let v_pointer = parse_data(&reshaped_vec, 66, count);
-    let w_pointer = parse_data(&reshaped_vec, 66, count);
+    let v_reso: Vec<u16> = parse_data(&reshaped_vec, 70, count);
+    let vcp_mode: Vec<u16> = parse_data(&reshaped_vec, 72, count);
     let elevation: Vec<f64> = (0..count)
         .map(|i| {
             let el = (reshaped_vec[i][42] as u16 + (reshaped_vec[i][43] as u16) * 256) as f64 * con;
@@ -76,8 +84,10 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
         .filter(|&(_, &val)| val == 1)
         .map(|(index, _)| index)
         .collect();
-
-    let el = elevation[boundary[0]];
+    // Rebuild todo end
+    let el = elevation[boundary[0]] * con;
+    let dv = v_reso[0];
+    let _header_size = 128;
     let mut b = boundary.clone();
     b.push(count);
     let mut gnr = Vec::new();
@@ -86,41 +96,56 @@ pub fn SAB_reader(path: &str) -> Result<(), bincode::Error> {
         gnr.push(gate_num_r[i]);
         gnv.push(gate_num_v[i]);
     }
-
-    let mut out_data: Vec<(f64, f64, f64, Vec<f64>)> = Vec::with_capacity(count);
-
-    for i in 0..count {
-        let el = elevation[i];
-        let az = azimuth[i];
-        let mut distance = 0.0;
-        let mut data = Vec::new(); //REF VEL SW...
-
-        for k in 0..gate_num_r[i] {
-            let mut point = r_pointer[i] + k;
-            distance = first_gate_r[i] as f64 + k as f64 * gate_length_r[i] as f64;
-            data.push(ref_cal(reshaped_vec[i][point as usize] as f64));
-        }
-        out_data.push((el, az, distance, data));
-    }
-    // let mut test = out_data.clone();
-    // println!("{:?}", test[1]);
-    // debug
     let diff_b = b.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
     let mut idx = 0;
+    let mut out_data: Vec<HashMap<String, Vec<f64>>> = Vec::new();
     for (bidx, (rnum, vnum)) in diff_b.iter().zip(gnr.iter().zip(gnv.iter())) {
-        let temp_dtype = TempDtype::new(*rnum as usize, *vnum as usize, 2432);
+        let mut f = &data[0..bidx * 2432];
+        let header = &f[0.._header_size];
+        let r: Vec<f64>;
+        let v: Vec<f64>;
+        let s: Vec<f64>;
+        if *rnum != 0 {
+            r = f[_header_size + 1..*rnum as usize + _header_size + 1]
+                .to_vec()
+                .iter()
+                .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
+                .filter(|&x| x >= 0.0)
+                .collect();
+        } else {
+            r = vec![0; *rnum as usize].iter().map(|&x| x as f64).collect();
+        };
+        if dv == 2 && *vnum != 0 {
+            v = f[_header_size + 1..*vnum as usize + _header_size + 1]
+                .to_vec()
+                .iter()
+                .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
+                .filter(|&x| x >= 0.0)
+                .collect();
+        } else {
+            v = vec![0; *vnum as usize].iter().map(|&x| x as f64).collect();
+        };
+        //let v =
+        out_data.resize(idx + 1, HashMap::new());
+        out_data[idx].insert("REF".to_string(), r);
+        out_data[idx].insert("VEL".to_string(), v);
+        out_data[idx].insert(
+            "azimuth".to_string(),
+            azimuth[b[idx] as usize..b[idx + 1] as usize].to_vec(),
+        );
         idx += 1;
         //println!(
-        //   "bidx: {}, rnum: {}, vnum: {}, idx: {}",
-        //    bidx, rnum, vnum, idx
+        //  "bidx: {}, rnum: {}, vnum: {}, idx: {}",
+        //   bidx, rnum, vnum, idx
         //);
     }
-
-    Ok(())
+    println!("Read End");
+    out_data
+}
+fn parse_u32(bytes: &[u8]) -> u32 {
+    u32::from_le_bytes(bytes.try_into().unwrap())
 }
 
-fn ref_cal(refl: f64) -> f64 {
-    let cacl = (refl - 2.0) / 2.0 - 32.0;
-    let refl_cal = if cacl >= 0.0 { cacl } else { 0.0 };
-    refl_cal
+fn parse_u16(bytes: &[u8]) -> u16 {
+    u16::from_le_bytes(bytes.try_into().unwrap())
 }
