@@ -16,34 +16,6 @@ fn parse_data(reshaped_data: &Vec<Vec<u8>>, index: usize, count: usize) -> Vec<u
     }
     data
 }
-struct S_Info {
-    time: u32,
-    day: u16,
-    unambiguous_distance: u16,
-    azimuth: u16,
-    radial_num: u16,
-    radial_state: u16,
-    elevation: u16,
-    el_num: u16,
-    first_gate_r: u16,
-    first_gate_v: u16,
-    gate_length_r: u16,
-    gate_length_v: u16,
-    gate_num_r: u16,
-    gate_num_v: u16,
-    sector_num: u16,
-    system_coff: u32,
-    r_pointer: u16,
-    v_pointer: u16,
-    w_pointer: u16,
-    v_reso: u16,
-    vcp_mode: u16,
-    res2: [u16; 4],
-    r_pointer_2: u16,
-    v_pointer_2: u16,
-    w_pointer_2: u16,
-    nyquist_vel: u16,
-}
 
 pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
     const con: f64 = (180.0 / 4096.0) * 0.125;
