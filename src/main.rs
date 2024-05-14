@@ -5,15 +5,15 @@ use std::io::stdin;
 use std::time::Instant;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("输入CINRAD数据路径:");
-    let mut filePath = String::new();
-    stdin().read_line(&mut filePath).expect("Input error");
+    let mut file_path = String::new();
+    stdin().read_line(&mut file_path).expect("Input error");
     let start = Instant::now();
-
+    
     //let fileName: &str = "Z_RADR_I_Z9515_20160623043100_O_DOR_SA_CAP.bin";
     //let mut radardata = io::level2::SAB_reader(&fileName);
 
-    let mut radardata = io::level2::SAB_reader(&filePath.trim());
-    let radarcode = io::dtype::infer_type(&filePath).unwrap();
+    let mut radardata = io::level2::SAB_reader(&file_path.trim());
+    let radarcode = io::dtype::infer_type(&file_path).unwrap();
     let el = 0;
     let r = get_range(2.300, 0.1);
     let azimuth = radardata[el]["azimuth"].to_vec();
