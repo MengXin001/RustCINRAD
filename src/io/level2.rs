@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use std::collections::HashMap;
-use std::f64::consts::{PI};
+use std::f64::consts::PI;
 
 fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
     // numpy.reshape
@@ -17,11 +17,15 @@ fn parse_data(reshaped_data: &Vec<Vec<u8>>, index: usize, count: usize) -> Vec<u
     data
 }
 
-pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
+pub fn SAB_reader(
+    path: &str,
+) -> (
+    Vec<HashMap<String, Vec<Vec<f64>>>>
+) {
     const con: f64 = (180.0 / 4096.0) * 0.125;
-    let mut data = std::fs::read(path).expect("文件读取失败");
+    let data = std::fs::read(path).expect("文件读取失败");
     let count: usize = data.len() / 2432; // SAB
-    let mut reshaped = reshape(&data, count, 2432);
+    let reshaped = reshape(&data, count, 2432);
     let mut reshaped_vec: Vec<Vec<u8>> = Vec::new();
     for row in reshaped.axis_iter(ndarray::Axis(0)) {
         reshaped_vec.push(row.to_vec());
@@ -70,44 +74,54 @@ pub fn SAB_reader(path: &str) -> (Vec<HashMap<String, Vec<f64>>>) {
     }
     let diff_b = b.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
     let mut idx = 0;
-    let mut out_data: Vec<HashMap<String, Vec<f64>>> = Vec::new();
+    let mut out_data: Vec<HashMap<String, Vec<Vec<f64>>>> = Vec::new();
     for (bidx, (rnum, vnum)) in diff_b.iter().zip(gnr.iter().zip(gnv.iter())) {
         let mut f = &data[0..bidx * 2432];
         let header = &f[0.._header_size];
-        let r: Vec<f64>;
-        let v: Vec<f64>;
-        let s: Vec<f64>;
+        let r: Vec<Vec<f64>>;
+        let v: Vec<Vec<f64>>;
+        let s: Vec<Vec<f64>>;
         if *rnum != 0 {
-            r = f[_header_size + 1..*rnum as usize + _header_size] // length?
+            r = f[_header_size + 1..bidx * *rnum as usize + _header_size + 1] // length?
                 .to_vec()
-                .iter()
-                .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
-                .filter(|&x| x >= 0.0)
+                .chunks(*rnum as usize)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
+                        .filter(|&x| x >= 0.0)
+                        .collect()
+                })
                 .collect();
         } else {
-            r = vec![0; *rnum as usize].iter().map(|&x| x as f64).collect();
-        };
+            r = vec![vec![0.0; *rnum as usize]; *bidx];
+        }
         if dv == 2 && *vnum != 0 {
-            v = f[_header_size + 1..*vnum as usize + _header_size] // length?
+            v = f[_header_size + 1..bidx * *vnum as usize + _header_size + 1] // length?
                 .to_vec()
-                .iter()
-                .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
-                .filter(|&x| x >= 0.0)
+                .chunks(*vnum as usize)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
+                        .filter(|&x| x >= 0.0)
+                        .collect()
+                })
                 .collect();
         } else {
-            v = vec![0; *vnum as usize].iter().map(|&x| x as f64).collect();
+            v = vec![vec![0.0; *vnum as usize]; *bidx];
         };
         out_data.resize(idx + 1, HashMap::new());
         out_data[idx].insert("REF".to_string(), r);
         out_data[idx].insert("VEL".to_string(), v);
         out_data[idx].insert(
             "azimuth".to_string(),
-            azimuth[b[idx] as usize..b[idx + 1] as usize].to_vec(),
+            vec![azimuth[b[idx] as usize..b[idx + 1] as usize].to_vec()],
         );
         idx += 1;
         //println!(
-        //  "bidx: {}, rnum: {}, vnum: {}, idx: {}",
-        //   bidx, rnum, vnum, idx
+        //    "bidx: {}, rnum: {}, vnum: {}, idx: {}",
+        //    bidx, rnum, vnum, idx
         //);
     }
     out_data

@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Read;
-
 pub fn infer_type(filename: &str) -> Result<String, std::io::Error> {
     let mut code = String::new();
     let mut detail_radartype = String::new();

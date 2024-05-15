@@ -1,6 +1,4 @@
-use std::fs::File;
-use std::io::Read;
-use serde_json::{Result, Value};
+use serde_json::Value;
 
 pub fn get_radar_info() -> Value {
     const STATION_JSON: &str = include_str!("../data/radar_station.json");
