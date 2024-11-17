@@ -1,128 +1,77 @@
-use ndarray::Array2;
+use binread::prelude::*;
 use std::collections::HashMap;
-use std::f64::consts::PI;
+use std::error::Error;
+use std::io::Cursor;
 
-fn reshape(data: &Vec<u8>, rows: usize, cols: usize) -> Array2<u8> {
-    // numpy.reshape
-    assert_eq!(data.len(), rows * cols);
-    Array2::from_shape_vec((rows, cols), data.clone()).unwrap()
+#[derive(Debug, BinRead)]
+pub struct S_INFO {
+    #[br(count = 14)]
+    res0: Vec<u8>,
+    flag: u16,
+    #[br(count = 12)]
+    res1: Vec<u8>,
+    time: u32,
+    day: u16,
+    unambiguous_distance: u16,
+    azimuth: u16,
+    radial_num: u16,
+    radial_state: u16,
+    elevation: u16,
+    el_num: u16,
+    first_gate_r: u16,
+    first_gate_v: u16,
+    gate_length_r: u16,
+    gate_length_v: u16,
+    gate_num_r: u16,
+    gate_num_v: u16,
+    sector_num: u16,
+    system_coff: u32,
+    r_pointer: u16,
+    v_pointer: u16,
+    w_pointer: u16,
+    v_reso: u16,
+    vcp_mode: u16,
+    r_pointer_2: u16, //？only god knows what
+    v_pointer_2: u16, //？only god knows what
+    w_pointer_2: u16, //？only god knows what
+    nyquist_vel: u16,
+    #[br(count = 38)]
+    res3: Vec<u8>,
 }
 
-fn parse_data(reshaped_data: &Vec<Vec<u8>>, index: usize, count: usize) -> Vec<u16> {
-    let mut data = Vec::with_capacity(count);
-    for i in 0..count {
-        let appened = (reshaped_data[i][index] as u16) + (reshaped_data[i][index + 1] as u16) * 256;
-        data.push(appened);
-    }
-    data
-}
-
-pub fn SAB_reader(
-    path: &str,
-) -> (
-    Vec<HashMap<String, Vec<Vec<f64>>>>
-) {
-    const con: f64 = (180.0 / 4096.0) * 0.125;
+pub fn SAB_reader(path: &str) -> Result<(&str), Box<dyn Error>> {
+    const CON: f64 = (180.0 / 4096.0) * 0.125;
     let data = std::fs::read(path).expect("文件读取失败");
     let count: usize = data.len() / 2432; // SAB
-    let reshaped = reshape(&data, count, 2432);
-    let mut reshaped_vec: Vec<Vec<u8>> = Vec::new();
-    for row in reshaped.axis_iter(ndarray::Axis(0)) {
-        reshaped_vec.push(row.to_vec());
-    }
-    // Rebuild todo start
-    let radial_num: Vec<u16> = parse_data(&reshaped_vec, 38, count);
-    let gate_length_r: Vec<u16> = parse_data(&reshaped_vec, 50, count);
-    let gate_length_v: Vec<u16> = parse_data(&reshaped_vec, 52, count);
-    let Rreso = gate_length_r[0] / 1000;
-    let Vreso = gate_length_v[0] / 1000;
-    let gate_num_r: Vec<u16> = parse_data(&reshaped_vec, 54, count);
-    let gate_num_v: Vec<u16> = parse_data(&reshaped_vec, 56, count);
-    let v_reso: Vec<u16> = parse_data(&reshaped_vec, 70, count);
-    let vcp_mode: Vec<u16> = parse_data(&reshaped_vec, 72, count);
-    let elevation: Vec<f64> = (0..count)
-        .map(|i| {
-            let el = (reshaped_vec[i][42] as u16 + (reshaped_vec[i][43] as u16) * 256) as f64 * con;
-            el
-        })
-        .collect();
+                                          // Rebuild todo start
+    let radial_num = 2432;
 
-    let azimuth: Vec<f64> = (0..count)
-        .map(|i| {
-            let az = (reshaped_vec[i][36] as u16 + (reshaped_vec[i][37] as u16) * 256) as f64 * con;
-            az
-        })
-        .collect();
+    for i in 0..count {
+        let s = i * radial_num;
+        let e = (i + 1) * radial_num;
+        let mut cursor = Cursor::new(&data[s..e]);
+        let s_info: S_INFO = cursor.read_le()?;
+        let Rreso = s_info.gate_length_r / 1000;
+        let Vreso = s_info.gate_length_v / 1000;
+        let elevation: f64 = s_info.elevation as f64 * CON;
+        let azimuth: f64 = s_info.azimuth as f64 * CON;
 
-    let boundary: Vec<usize> = radial_num
-        .iter()
-        .enumerate()
-        .filter(|&(_, &val)| val == 1)
-        .map(|(index, _)| index)
-        .collect();
-    // Rebuild todo end
-    let el = elevation[boundary[0]] * con;
-    let dv = v_reso[0];
-    let _header_size = 128;
-    let mut b = boundary.clone();
-    b.push(count);
-    let mut gnr = Vec::new();
-    let mut gnv = Vec::new();
-    for &i in &boundary {
-        gnr.push(gate_num_r[i]);
-        gnv.push(gate_num_v[i]);
+        let r_start = s;
+        let r_end = s + s_info.gate_length_r as usize;
+
+        let r: Vec<f64> = data[r_start..r_end]
+            .iter()
+            .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
+            .filter(|&x| x >= 0.0)
+            .collect();
+
+        let v_start = r_end;
+        let v_end = v_start + s_info.gate_length_v as usize;
+        let v: Vec<f64> = data[v_start..v_end]
+            .iter()
+            .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
+            .filter(|&x| x >= 0.0)
+            .collect();
     }
-    let diff_b = b.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
-    let mut idx = 0;
-    let mut out_data: Vec<HashMap<String, Vec<Vec<f64>>>> = Vec::new();
-    for (bidx, (rnum, vnum)) in diff_b.iter().zip(gnr.iter().zip(gnv.iter())) {
-        let mut f = &data[0..bidx * 2432];
-        let header = &f[0.._header_size];
-        let r: Vec<Vec<f64>>;
-        let v: Vec<Vec<f64>>;
-        let s: Vec<Vec<f64>>;
-        if *rnum != 0 {
-            r = f[_header_size + 1..bidx * *rnum as usize + _header_size + 1] // length?
-                .to_vec()
-                .chunks(*rnum as usize)
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .map(|&x| (x as f64 - 2.0) / 2.0 - 32.0)
-                        .filter(|&x| x >= 0.0)
-                        .collect()
-                })
-                .collect();
-        } else {
-            r = vec![vec![0.0; *rnum as usize]; *bidx];
-        }
-        if dv == 2 && *vnum != 0 {
-            v = f[_header_size + 1..bidx * *vnum as usize + _header_size + 1] // length?
-                .to_vec()
-                .chunks(*vnum as usize)
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .map(|&x| (x as f64 - 2.0) / 2.0 - 63.5)
-                        .filter(|&x| x >= 0.0)
-                        .collect()
-                })
-                .collect();
-        } else {
-            v = vec![vec![0.0; *vnum as usize]; *bidx];
-        };
-        out_data.resize(idx + 1, HashMap::new());
-        out_data[idx].insert("REF".to_string(), r);
-        out_data[idx].insert("VEL".to_string(), v);
-        out_data[idx].insert(
-            "azimuth".to_string(),
-            vec![azimuth[b[idx] as usize..b[idx + 1] as usize].to_vec()],
-        );
-        idx += 1;
-        //println!(
-        //    "bidx: {}, rnum: {}, vnum: {}, idx: {}",
-        //    bidx, rnum, vnum, idx
-        //);
-    }
-    out_data
+    Ok("read completed")
 }
