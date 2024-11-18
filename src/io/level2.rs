@@ -53,7 +53,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
                 if value >= 0.0 {
                     Some(value)
                 } else {
-                    None
+                    Some(0.0)
                 }
             })
             .collect();
@@ -67,7 +67,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
                 if value >= 0.0 {
                     Some(value)
                 } else {
-                    None
+                    Some(0.0)
                 }
             })
             .collect();
@@ -81,7 +81,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
                 if value >= 0.0 {
                     Some(value)
                 } else {
-                    None
+                    Some(0.0)
                 }
             })
             .collect();
