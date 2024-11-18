@@ -1,19 +1,110 @@
+use std::default::Default;
+use binread::prelude::*;
+
 pub fn infer_type(filename: &str) -> Result<String, std::io::Error> {
     let mut code = String::new();
-    // let mut detail_radartype = String::new();
     // 从文件名读站号
     if filename.starts_with("RADA") {
         let spart: Vec<&str> = filename.split("-").collect();
         if spart.len() > 2 {
             code = spart[1].to_string();
-            // detail_radartype = spart[2].to_string();
         }
     } else if filename.starts_with("Z") {
         let spart: Vec<&str> = filename.split("_").collect();
         if spart.len() > 7 {
             code = spart[3].to_string();
-            // detail_radartype = spart[7].to_string();
         }
     }
     Ok(code)
+}
+
+#[derive(Debug)]
+pub struct StandardData {
+    pub range: String,
+    pub scan_time: String,
+    pub site_code: String,
+    pub site_name: String,
+    pub site_longitude: f64,
+    pub site_latitude: f64,
+    pub tangential_reso: String,
+    pub nyquist_vel: String,
+    pub task: String,
+    pub elevations: Vec<f64>,
+    pub azimuth: Vec<Vec<f64>>,
+    pub distance: Vec<Vec<Vec<Vec<f64>>>>,
+    pub data: Vec<Vec<Vec<Vec<f64>>>>,
+}
+
+impl Default for StandardData {
+    fn default() -> Self {
+        Self {
+            range: "230".to_string(),
+            scan_time: "2020-05-17 11:00:28".to_string(),
+            site_code: "Z9532".to_string(),
+            site_name: "青岛".to_string(),
+            site_longitude: 120.23028,
+            site_latitude: 35.98861,
+            tangential_reso: "0.25".to_string(),
+            nyquist_vel: "8.37801".to_string(),
+            task: "VCP21D".to_string(),
+            elevations: vec![],
+            azimuth: vec![],
+            distance: vec![],
+            data: vec![],
+        }
+    }
+}
+
+#[derive(Debug, BinRead)]
+pub struct SAB_dtype {
+    pub s_info: S_INFO,
+    pub sab_data: SAB_DATA,
+}
+#[derive(Debug, BinRead)]
+pub struct SAB_DATA {
+    #[br(count = 460)]
+    pub r: Vec<u8>,
+    #[br(count = 920)]
+    pub v: Vec<u8>,
+    #[br(count = 920)]
+    pub w: Vec<u8>,
+    #[br(count = 4)]
+    pub res4: Vec<u8>,
+}
+#[derive(Debug, BinRead)]
+pub struct S_INFO {
+    #[br(count = 14)]
+    pub res0: Vec<u8>,
+    pub flag: u16,
+    #[br(count = 12)]
+    pub res1: Vec<u8>,
+    pub time: u32,
+    pub day: u16,
+    pub unambiguous_distance: u16,
+    pub azimuth: u16,
+    pub radial_num: u16,
+    pub radial_state: u16,
+    pub elevation: u16,
+    pub el_num: u16,
+    pub first_gate_r: u16,
+    pub first_gate_v: u16,
+    pub gate_length_r: u16,
+    pub gate_length_v: u16,
+    pub gate_num_r: u16,
+    pub gate_num_v: u16,
+    pub sector_num: u16,
+    pub system_coff: u32,
+    pub r_pointer: u16,
+    pub v_pointer: u16,
+    pub w_pointer: u16,
+    pub v_reso: u16,
+    pub vcp_mode: u16,
+    #[br(count = 8)]
+    pub res2: Vec<u8>,
+    pub r_pointer_2: u16, //？only god knows what
+    pub v_pointer_2: u16, //？only god knows what
+    pub w_pointer_2: u16, //？only god knows what
+    pub nyquist_vel: u16,
+    #[br(count = 38)]
+    pub res3: Vec<u8>,
 }
