@@ -1,22 +1,5 @@
-use std::default::Default;
 use binread::prelude::*;
-
-pub fn infer_type(filename: &str) -> Result<String, std::io::Error> {
-    let mut code = String::new();
-    // 从文件名读站号
-    if filename.starts_with("RADA") {
-        let spart: Vec<&str> = filename.split("-").collect();
-        if spart.len() > 2 {
-            code = spart[1].to_string();
-        }
-    } else if filename.starts_with("Z") {
-        let spart: Vec<&str> = filename.split("_").collect();
-        if spart.len() > 7 {
-            code = spart[3].to_string();
-        }
-    }
-    Ok(code)
-}
+use std::default::Default;
 
 #[derive(Debug)]
 pub struct StandardData {
@@ -57,6 +40,7 @@ impl Default for StandardData {
 
 #[derive(Debug, BinRead)]
 pub struct SAB_dtype {
+    pub s_header: S_HEADER,
     pub s_info: S_INFO,
     pub sab_data: SAB_DATA,
 }
@@ -72,12 +56,15 @@ pub struct SAB_DATA {
     pub res4: Vec<u8>,
 }
 #[derive(Debug, BinRead)]
-pub struct S_INFO {
+pub struct S_HEADER {
     #[br(count = 14)]
-    pub res0: Vec<u8>,
-    pub flag: u16,
+    pub spare: Vec<u8>,
+    pub a: u16,
     #[br(count = 12)]
     pub res1: Vec<u8>,
+}
+#[derive(Debug, BinRead)]
+pub struct S_INFO {
     pub time: u32,
     pub day: u16,
     pub unambiguous_distance: u16,

@@ -8,7 +8,7 @@ use crate::io::dtype::*;
 pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     const CON: f64 = (180.0 / 4096.0) * 0.125;
     let data = std::fs::read(path).expect("文件读取失败");
-    let radar_code = io::dtype::infer_type(path).unwrap();
+    let radar_code = io::base::infer_type(path).unwrap();
     let radarinfo = io::base::get_radar_info();
     let station = &radarinfo[radar_code.clone()];
     let site_name = station[0].as_str().unwrap().to_string();
