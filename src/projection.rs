@@ -45,7 +45,7 @@ pub fn get_coordinate(
     }
     let lat_ncol = lat.ncols();
     let lon_ncol = lon.ncols();
-    
+
     let actuallat = lat
         .into_raw_vec()
         .chunks(lat_ncol)

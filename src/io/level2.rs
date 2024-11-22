@@ -15,10 +15,11 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     let centerlon = station[1].as_f64().unwrap();
     let centerlat = station[2].as_f64().unwrap();
     let radartype = station[3].as_str().unwrap();
+    let radarheight = station[4].as_f64().unwrap();
 
     let radial_num = 2432;
     let count: usize = data.len() / radial_num; // SAB
-
+    let mut v_reso: u16 = 2;
     let mut vcp_mode: String = "Unknown".to_string();
 
     let mut temp_data: Vec<(f64, Vec<f64>, Vec<f64>, Vec<f64>)> = Vec::with_capacity(count);
@@ -38,6 +39,9 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         let sab_dtype: SAB_dtype = cursor.read_le()?;
         let s_info: S_INFO = sab_dtype.s_info;
         let sab_data: SAB_DATA = sab_dtype.sab_data;
+        if i == 0 {
+            v_reso = s_info.v_reso;
+        }
         let Rreso = s_info.gate_length_r / 1000;
         let Vreso = s_info.gate_length_v / 1000;
         let elevation: f64 = s_info.elevation as f64 * CON;
@@ -63,7 +67,12 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         let v: Vec<f64> = data[v_start..v_end]
             .iter()
             .filter_map(|&x| {
-                let value = (x as f64 - 2.0) / 2.0 - 63.5;
+                let mut value = 0.0;
+                if v_reso == 2 {
+                    value = (x as f64 - 2.0) / 2.0 - 63.5;
+                } else if v_reso == 4 {
+                    value = (x as f64 - 2.0) - 127.0;
+                }
                 if value >= 0.0 {
                     Some(value)
                 } else {
@@ -77,7 +86,12 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         let w: Vec<f64> = data[w_start..w_end]
             .iter()
             .filter_map(|&x| {
-                let value = (x as f64 - 2.0) / 2.0 - 63.5;
+                let mut value = 0.0;
+                if v_reso == 2 {
+                    value = (x as f64 - 2.0) / 2.0 - 63.5;
+                } else if v_reso == 4 {
+                    value = (x as f64 - 2.0) - 127.0;
+                }
                 if value >= 0.0 {
                     Some(value)
                 } else {
@@ -127,6 +141,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     out_data.site_name = site_name;
     out_data.site_latitude = centerlat;
     out_data.site_longitude = centerlon;
+    out_data.site_altitude = radarheight;
     out_data.task = "VCP".to_string() + &vcp_mode;
     out_data.azimuth = azimuths;
     out_data.elevations = elevations;
