@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use std::f64::consts::PI;
-
+#[allow(dead_code)]
 pub fn get_range(drange: f64, reso: f64) -> Vec<f64> {
     let mut rng = Vec::new();
     let valid_entry = (drange / reso) as usize;
@@ -11,7 +11,7 @@ pub fn get_range(drange: f64, reso: f64) -> Vec<f64> {
 
     rng
 }
-
+#[allow(dead_code)]
 pub fn get_coordinate(
     distance: Vec<f64>,
     azimuth: Vec<f64>,

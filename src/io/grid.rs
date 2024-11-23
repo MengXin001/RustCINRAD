@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub fn grid_raw(
     //reserve
     data: Vec<Vec<f64>>,
@@ -10,10 +11,10 @@ pub fn grid_raw(
     let cols = drange + 1;
     let center = (((rows - 1) / 2) as f64, ((cols - 1) / 2) as f64);
     let mut grid = vec![vec![0.0; cols]; rows];
-    for (az_index, &az) in azimuths.iter().enumerate() {
+    for (az_idx, &az) in azimuths.iter().enumerate() {
         let theta = az.to_radians();
-        for (range_index, &value) in data[az_index].iter().enumerate() {
-            let r = range_index as f64 * reso;
+        for (range_idx, &value) in data[az_idx].iter().enumerate() {
+            let r = range_idx as f64 * reso;
             let x = r * theta.cos();
             let y = r * theta.sin();
 
@@ -43,12 +44,12 @@ pub fn grid_interpolated(
     let scale = drange / rows as f64 * reso; //todo -> dpi
 
     let mut grid = vec![vec![f64::NAN; cols]; rows];
-    for az_index in 0..azimuths.len() - 1 {
-        let theta1 = azimuths[az_index].to_radians();
-        let theta2 = azimuths[az_index + 1].to_radians();
-        for range_index in 0..data[az_index].len() - 1 {
-            let r1 = range_index as f64 * reso;
-            let r2 = (range_index + 1) as f64 * reso;
+    for az_idx in 0..azimuths.len() - 1 {
+        let theta1 = azimuths[az_idx].to_radians();
+        let theta2 = azimuths[az_idx + 1].to_radians();
+        for range_idx in 0..data[az_idx].len() - 1 {
+            let r1 = range_idx as f64 * reso;
+            let r2 = (range_idx + 1) as f64 * reso;
             let corners = [
                 (r1 * theta1.cos(), r1 * theta1.sin()),
                 (r2 * theta1.cos(), r2 * theta1.sin()),
@@ -83,10 +84,10 @@ pub fn grid_interpolated(
                         let cx = (xi as f64 - center.0) * scale;
                         let cy = (center.1 - yi as f64) * scale;
                         if point_in_polygon((cx, cy), &corners) {
-                            let value = (data[az_index][range_index]
-                                + data[az_index + 1][range_index]
-                                + data[az_index][range_index + 1]
-                                + data[az_index + 1][range_index + 1])
+                            let value = (data[az_idx][range_idx]
+                                + data[az_idx + 1][range_idx]
+                                + data[az_idx][range_idx + 1]
+                                + data[az_idx + 1][range_idx + 1])
                                 / 4.0;
 
                             grid[yi][xi] = if grid[yi][xi].is_nan() {

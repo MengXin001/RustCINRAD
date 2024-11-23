@@ -43,12 +43,14 @@ impl Default for StandardData {
 }
 
 #[derive(Debug, BinRead)]
+#[allow(non_camel_case_types)]
 pub struct SAB_dtype {
     pub s_header: S_HEADER,
     pub s_info: S_INFO,
     pub sab_data: SAB_DATA,
 }
 #[derive(Debug, BinRead)]
+#[allow(non_camel_case_types)]
 pub struct SAB_DATA {
     #[br(count = 460)]
     pub r: Vec<u8>,
@@ -60,6 +62,7 @@ pub struct SAB_DATA {
     pub res4: Vec<u8>,
 }
 #[derive(Debug, BinRead)]
+#[allow(non_camel_case_types)]
 pub struct S_HEADER {
     #[br(count = 14)]
     pub spare: Vec<u8>,
@@ -68,6 +71,7 @@ pub struct S_HEADER {
     pub res1: Vec<u8>,
 }
 #[derive(Debug, BinRead)]
+#[allow(non_camel_case_types)]
 pub struct S_INFO {
     pub time: u32,
     pub day: u16,

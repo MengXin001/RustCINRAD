@@ -4,7 +4,8 @@ use std::io::Cursor;
 
 use crate::io;
 use crate::io::dtype::*;
-
+#[allow(non_snake_case)]
+#[allow(unused_variables)]
 pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     const CON: f64 = (180.0 / 4096.0) * 0.125;
     let data = std::fs::read(path).expect("文件读取失败");
