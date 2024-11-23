@@ -1,7 +1,7 @@
 mod io;
 mod projection;
 mod visualize;
-use projection::{get_coordinate, get_range};
+//use projection::{get_coordinate, get_range};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     /*let (actuallon, actuallat) =
     get_coordinate(r, azimuth.to_vec(), elevation, centerlon, centerlat, true);*/
     let grid_data: Vec<Vec<f64>> = io::grid::grid_interpolated(data.to_vec(), azimuth.to_vec(), drange, reso).unwrap();
-    visualize::ppi::ppi(grid_data.to_vec(), drange as usize + 1, drange as usize + 1, fname);
+    visualize::ppi::ppi(grid_data.to_vec(), 3000, 3000, fname);
     println!(
         "站点: {}/{} {}N, {}E/{}m",
         radarcode, radarname, centerlat, centerlon, radardata.site_altitude

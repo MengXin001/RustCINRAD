@@ -1,4 +1,5 @@
-pub fn grid(
+pub fn grid_raw(
+    //reserve
     data: Vec<Vec<f64>>,
     azimuths: Vec<f64>,
     drange: f64,
@@ -35,11 +36,13 @@ pub fn grid_interpolated(
     drange: f64,
     reso: f64,
 ) -> Option<Vec<Vec<f64>>> {
-    let rows = ((drange / reso).ceil() as usize) + 1;
+    let rows = 3000; //default use
     let cols = rows;
     let center = ((rows - 1) as f64 / 2.0, (cols - 1) as f64 / 2.0);
+
+    let scale = drange / rows as f64 * reso; //todo -> dpi
+
     let mut grid = vec![vec![f64::NAN; cols]; rows];
-    let mut count = vec![vec![0; cols]; rows];
     for az_index in 0..azimuths.len() - 1 {
         let theta1 = azimuths[az_index].to_radians();
         let theta2 = azimuths[az_index + 1].to_radians();
@@ -54,49 +57,68 @@ pub fn grid_interpolated(
             ];
             let x_min = corners
                 .iter()
-                .map(|(x, _)| center.0 + x / reso)
-                .fold(f64::INFINITY, f64::min);
+                .map(|(x, _)| x)
+                .fold(f64::INFINITY, |a, &b| a.min(b));
             let x_max = corners
                 .iter()
-                .map(|(x, _)| center.0 + x / reso)
-                .fold(f64::NEG_INFINITY, f64::max);
+                .map(|(x, _)| x)
+                .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
             let y_min = corners
                 .iter()
-                .map(|(_, y)| center.1 - y / reso)
-                .fold(f64::INFINITY, f64::min);
+                .map(|(_, y)| y)
+                .fold(f64::INFINITY, |a, &b| a.min(b));
             let y_max = corners
                 .iter()
-                .map(|(_, y)| center.1 - y / reso)
-                .fold(f64::NEG_INFINITY, f64::max);
-            for xi in x_min.floor() as isize..=x_max.ceil() as isize {
-                for yi in y_min.floor() as isize..=y_max.ceil() as isize {
+                .map(|(_, y)| y)
+                .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+            let x_min_idx = ((x_min / scale) + center.0).floor() as isize;
+            let x_max_idx = ((x_max / scale) + center.0).ceil() as isize;
+            let y_min_idx = (center.1 - (y_max / scale)).floor() as isize;
+            let y_max_idx = (center.1 - (y_min / scale)).ceil() as isize;
+            for xi in x_min_idx..=x_max_idx {
+                for yi in y_min_idx..=y_max_idx {
                     if xi >= 0 && xi < cols as isize && yi >= 0 && yi < rows as isize {
                         let xi = xi as usize;
                         let yi = yi as usize;
-                        let value = (data[az_index][range_index]
-                            + data[az_index + 1][range_index]
-                            + data[az_index][range_index + 1]
-                            + data[az_index + 1][range_index + 1])
-                            / 4.0;
+                        let cx = (xi as f64 - center.0) * scale;
+                        let cy = (center.1 - yi as f64) * scale;
+                        if point_in_polygon((cx, cy), &corners) {
+                            let value = (data[az_index][range_index]
+                                + data[az_index + 1][range_index]
+                                + data[az_index][range_index + 1]
+                                + data[az_index + 1][range_index + 1])
+                                / 4.0;
 
-                        if grid[yi][xi].is_nan() {
-                            grid[yi][xi] = value;
-                        } else {
-                            grid[yi][xi] += value;
+                            grid[yi][xi] = if grid[yi][xi].is_nan() {
+                                value
+                            } else {
+                                (grid[yi][xi] + value) / 2.0
+                            };
                         }
-                        count[yi][xi] += 1;
                     }
                 }
             }
         }
     }
-    for i in 0..rows {
-        for j in 0..cols {
-            if count[i][j] > 0 {
-                grid[i][j] /= count[i][j] as f64;
+
+    Some(grid)
+}
+
+fn point_in_polygon(point: (f64, f64), polygon: &[(f64, f64)]) -> bool {
+    let (px, py) = point;
+    let mut is_inside = false;
+
+    for i in 0..polygon.len() {
+        let start = polygon[i];
+        let end = polygon[(i + 1) % polygon.len()];
+        let is_between_y = (start.1 > py) != (end.1 > py);
+        if is_between_y {
+            let intersection_x = (end.0 - start.0) * (py - start.1) / (end.1 - start.1) + start.0;
+            if px < intersection_x {
+                is_inside = !is_inside;
             }
         }
     }
 
-    Some(grid)
+    is_inside
 }

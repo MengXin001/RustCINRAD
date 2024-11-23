@@ -14,7 +14,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     let site_name = station[0].as_str().unwrap().to_string();
     let centerlon = station[1].as_f64().unwrap();
     let centerlat = station[2].as_f64().unwrap();
-    let radartype = station[3].as_str().unwrap();
+    let radartype = station[3].as_str().unwrap().to_string();
     let radarheight = station[4].as_f64().unwrap();
 
     let radial_num = 2432;
@@ -142,6 +142,7 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     out_data.site_latitude = centerlat;
     out_data.site_longitude = centerlon;
     out_data.site_altitude = radarheight;
+    out_data.site_type = radartype;
     out_data.task = "VCP".to_string() + &vcp_mode;
     out_data.azimuth = azimuths;
     out_data.elevations = elevations;
