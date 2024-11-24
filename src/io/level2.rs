@@ -4,10 +4,12 @@ use std::io::Cursor;
 
 use crate::io;
 use crate::io::dtype::*;
+
+const CON: f64 = (180.0 / 4096.0) * 0.125;
+
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
 pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
-    const CON: f64 = (180.0 / 4096.0) * 0.125;
     let data = std::fs::read(path).expect("文件读取失败");
     let radar_code = io::base::infer_type(path).unwrap();
     let radarinfo = io::base::get_radar_info();
@@ -30,8 +32,8 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     let mut elevations = Vec::new();
     let mut REF = Vec::new();
     let mut VEL = Vec::new();
-    let mut azimuths = Vec::new();
     let mut SW = Vec::new();
+    let mut azimuths = Vec::new();
 
     for i in 0..count {
         let s = i * radial_num;

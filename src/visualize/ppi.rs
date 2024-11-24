@@ -1,9 +1,10 @@
 use image::{ImageBuffer, Rgba};
 pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str) {
     let mut plt = ImageBuffer::new(grid_cols as u32, grid_rows as u32);
+    // todo rebuild
     let color_palette = |value: f64| -> Option<Rgba<u8>> {
         if value == 0.0 {
-            return None;
+            return Some(Rgba([0, 0, 0, 255]));
         }
         let color_scale = vec![
             (0.0, Rgba([0, 0, 246, 255])),

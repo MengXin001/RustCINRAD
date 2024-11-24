@@ -15,8 +15,8 @@ pub fn grid_raw(
         let theta = az.to_radians();
         for (range_idx, &value) in data[az_idx].iter().enumerate() {
             let r = range_idx as f64 * reso;
-            let x = r * theta.cos();
-            let y = r * theta.sin();
+            let x = r * theta.sin();
+            let y = r * theta.cos();
 
             let x_grid = (center.0 + x).round() as isize;
             let y_grid = (center.1 - y).round() as isize;
@@ -51,10 +51,10 @@ pub fn grid_interpolated(
             let r1 = range_idx as f64 * reso;
             let r2 = (range_idx + 1) as f64 * reso;
             let corners = [
-                (r1 * theta1.cos(), r1 * theta1.sin()),
-                (r2 * theta1.cos(), r2 * theta1.sin()),
-                (r2 * theta2.cos(), r2 * theta2.sin()),
-                (r1 * theta2.cos(), r1 * theta2.sin()),
+                (r1 * theta1.sin(), r1 * theta1.cos()),
+                (r2 * theta1.sin(), r2 * theta1.cos()),
+                (r2 * theta2.sin(), r2 * theta2.cos()),
+                (r1 * theta2.sin(), r1 * theta2.cos()),
             ];
             let x_min = corners
                 .iter()
