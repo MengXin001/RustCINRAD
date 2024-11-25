@@ -1,15 +1,19 @@
 use crate::visualize::colormap;
 use image::{ImageBuffer, Rgba};
 
-pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str, product: &str) {
+pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str, dtype: &str) {
     let mut plt = ImageBuffer::new(grid_cols as u32, grid_rows as u32);
     let mut cmap_list: &str = include_str!("../data/colormap/REF.cmap");
-    if product == "VEL" {
+    if dtype == "VEL" {
         cmap_list = include_str!("../data/colormap/VEL.cmap")
     }
     let color_palette = |value: f64| -> Option<Rgba<u8>> {
         if value == 0.0 || value.is_nan() {
             return Some(Rgba([0, 0, 0, 255]));
+        }
+        if value == f64::NEG_INFINITY && dtype == "VEL" {
+            // RF
+            return Some(Rgba([102, 0, 102, 255]));
         }
         let color_map = colormap::Cmap::from_list(&cmap_list).points;
         if value <= color_map.first().unwrap().0 {
@@ -18,10 +22,6 @@ pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str,
 
         if value >= color_map.last().unwrap().0 {
             return Some(color_map.last().unwrap().1);
-        }
-        if value == f64::NEG_INFINITY && product == "VEL" {
-            // RF
-            return Some(Rgba([102, 0, 102, 255]));
         }
         for i in 1..color_map.len() {
             let (low, low_color) = color_map[i - 1];

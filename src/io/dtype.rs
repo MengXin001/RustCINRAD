@@ -1,39 +1,86 @@
 use binread::prelude::*;
-use std::default::Default;
-
+use std::{collections::HashMap, default::Default};
 #[derive(Debug)]
 pub struct StandardData {
-    pub range: String,
-    pub scan_time: String,
-    pub site_code: String,
-    pub site_name: String,
-    pub site_type: String,
-    pub site_longitude: f64,
-    pub site_latitude: f64,
-    pub site_altitude: f64,
-    pub tangential_reso: String,
-    pub nyquist_vel: String,
-    pub task: String,
+    pub attributes: HashMap<String, String>,
     pub elevations: Vec<f64>,
     pub azimuth: Vec<Vec<f64>>,
     pub distance: Vec<Vec<Vec<Vec<f64>>>>,
     pub data: Vec<Vec<Vec<Vec<f64>>>>,
 }
+#[allow(dead_code)]
+impl StandardData {
+    pub fn get_reso(&self, dtype: &str) -> Result<f64, Box<dyn std::error::Error>> {
+        let reso = if dtype == "REF" {
+            self.attributes["r_reso"].parse::<f64>()?
+        } else {
+            self.attributes["v_reso"].parse::<f64>()?
+        };
+        Ok(reso)
+    }
+    pub fn get_tilt(&self, tilt: usize) -> Result<f64, Box<dyn std::error::Error>> {
+        if tilt < self.elevations.len() {
+            Ok(self.elevations[tilt])
+        } else {
+            return Err(format!("tilt {} not in range", tilt).into());
+        }
+    }
+    pub fn get_tilt_all(&self) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+        Ok(self.elevations.clone())
+    }
+    pub fn get_azimuth(&self, tilt: usize) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+        Ok(self.azimuth[tilt].clone())
+    }
+    pub fn get_data(
+        &self,
+        tilt: usize,
+        drange: f64,
+        dtype: &str,
+    ) -> Result<Vec<Vec<f64>>, Box<dyn std::error::Error>> {
+        let data_idx: usize = match dtype {
+            "REF" => 0,
+            "VEL" => 1,
+            "SW" => 2,
+            _ => return Err(format!("{} not found", dtype).into()),
+        };
+        let reso = self.get_reso(dtype)?;
+        if tilt >= self.data[data_idx].len() {
+            return Err(format!("tilt {} not in range", tilt).into());
+        }
+        let data_tilt = &self.data[data_idx][tilt];
+        let dmax = data_tilt[0].len() as f64 * reso;
+        if drange > dmax {
+            return Err(format!("{}km out of dmax {}km", drange, dmax).into());
+        } else if drange == dmax {
+            return Ok(data_tilt.to_vec());
+        } else {
+            let clip_range = (drange * reso) as usize;
+            let out_data = data_tilt
+                .iter()
+                .map(|x| x[0..clip_range].to_vec())
+                .collect();
+            Ok(out_data)
+        }
+    }
+}
 
 impl Default for StandardData {
     fn default() -> Self {
+        let mut attributes = HashMap::new();
+        attributes.insert("range".to_string(), "230".to_string());
+        attributes.insert("scan_time".to_string(), "2020-05-17 11:00:28".to_string());
+        attributes.insert("site_code".to_string(), "Z9532".to_string());
+        attributes.insert("site_name".to_string(), "青岛".to_string());
+        attributes.insert("site_longitude".to_string(), "120.23028".to_string());
+        attributes.insert("site_latitude".to_string(), "35.98861".to_string());
+        attributes.insert("site_altitude".to_string(), "35.1".to_string());
+        attributes.insert("site_type".to_string(), "SA".to_string());
+        attributes.insert("task".to_string(), "VCP21D".to_string());
+        attributes.insert("r_reso".to_string(), "1.00".to_string());
+        attributes.insert("v_reso".to_string(), "0.25".to_string());
+        attributes.insert("nyquist_vel".to_string(), "8.37801".to_string());
         Self {
-            range: "230".to_string(),
-            scan_time: "2020-05-17 11:00:28".to_string(),
-            site_code: "Z9532".to_string(),
-            site_name: "青岛".to_string(),
-            site_type: "SA".to_string(),
-            site_longitude: 120.23028,
-            site_latitude: 35.98861,
-            site_altitude: 35.1,
-            tangential_reso: "0.25".to_string(),
-            nyquist_vel: "8.37801".to_string(),
-            task: "VCP21D".to_string(),
+            attributes: attributes,
             elevations: vec![],
             azimuth: vec![],
             distance: vec![],
