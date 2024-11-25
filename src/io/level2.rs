@@ -1,4 +1,5 @@
 use binread::prelude::*;
+use core::f64;
 use std::error::Error;
 use std::io::Cursor;
 
@@ -70,17 +71,15 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         let v: Vec<f64> = data[v_start..v_end]
             .iter()
             .filter_map(|&x| {
-                let mut value = 0.0;
-                if v_reso == 2 {
+                let mut value = f64::NAN;
+                if v_reso == 2 && x >= 2 {
                     value = (x as f64 - 2.0) / 2.0 - 63.5;
-                } else if v_reso == 4 {
+                } else if v_reso == 4 && x >= 2 {
                     value = (x as f64 - 2.0) - 127.0;
+                } else if x == 1 {
+                    value = f64::NEG_INFINITY
                 }
-                if value >= 0.0 {
-                    Some(value)
-                } else {
-                    Some(0.0)
-                }
+                Some(value)
             })
             .collect();
 
@@ -89,10 +88,10 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         let w: Vec<f64> = data[w_start..w_end]
             .iter()
             .filter_map(|&x| {
-                let mut value = 0.0;
-                if v_reso == 2 {
+                let mut value = f64::NAN;
+                if v_reso == 2 && x >= 2 {
                     value = (x as f64 - 2.0) / 2.0 - 63.5;
-                } else if v_reso == 4 {
+                } else if v_reso == 4 && x >= 2 {
                     value = (x as f64 - 2.0) - 127.0;
                 }
                 if value >= 0.0 {

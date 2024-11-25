@@ -21,6 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reso = 1.0;
     let elevation = 0.5;
     let fname = "radar.png";
+    let product = "REF";
     println!(
         "\n第{}层仰角{}deg，数据范围{}km，数据分辨率{}km",
         el, elevation, drange, reso
@@ -31,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     /*let (actuallon, actuallat) =
     get_coordinate(r, azimuth.to_vec(), elevation, centerlon, centerlat, true);*/
     let grid_data: Vec<Vec<f64>> = io::grid::grid_interpolated(data.to_vec(), azimuth.to_vec(), drange, reso).unwrap();
-    visualize::ppi::ppi(grid_data.to_vec(), 3000, 3000, fname);
+    visualize::ppi::ppi(grid_data.to_vec(), 3000, 3000, fname, product);
     println!(
         "站点: {}/{} {}N, {}E/{}m",
         radarcode, radarname, centerlat, centerlon, radardata.site_altitude

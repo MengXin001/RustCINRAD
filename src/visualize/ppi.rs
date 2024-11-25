@@ -1,34 +1,31 @@
+use crate::visualize::colormap;
 use image::{ImageBuffer, Rgba};
-pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str) {
+
+pub fn ppi(grid: Vec<Vec<f64>>, grid_cols: usize, grid_rows: usize, fname: &str, product: &str) {
     let mut plt = ImageBuffer::new(grid_cols as u32, grid_rows as u32);
-    // todo rebuild
+    let mut cmap_list: &str = include_str!("../data/colormap/REF.cmap");
+    if product == "VEL" {
+        cmap_list = include_str!("../data/colormap/VEL.cmap")
+    }
     let color_palette = |value: f64| -> Option<Rgba<u8>> {
-        if value == 0.0 {
+        if value == 0.0 || value.is_nan() {
             return Some(Rgba([0, 0, 0, 255]));
         }
-        let color_scale = vec![
-            (0.0, Rgba([0, 0, 246, 255])),
-            (5.0, Rgba([1, 160, 246, 255])),
-            (10.0, Rgba([0, 236, 236, 255])),
-            (15.0, Rgba([1, 255, 0, 255])),
-            (20.0, Rgba([0, 200, 0, 255])),
-            (25.0, Rgba([1, 144, 0, 255])),
-            (30.0, Rgba([255, 255, 0, 255])),
-            (35.0, Rgba([231, 192, 0, 255])),
-            (40.0, Rgba([255, 144, 0, 255])),
-            (45.0, Rgba([255, 0, 0, 255])),
-            (50.0, Rgba([214, 0, 0, 255])),
-            (55.0, Rgba([192, 0, 0, 255])),
-            (60.0, Rgba([255, 0, 240, 255])),
-            (65.0, Rgba([120, 0, 132, 255])),
-            (70.0, Rgba([173, 144, 240, 255])),
-        ];
-        if value >= 70.0 {
-            return Some(color_scale.last().unwrap().1);
+        let color_map = colormap::Cmap::from_list(&cmap_list).points;
+        if value <= color_map.first().unwrap().0 {
+            return Some(color_map.first().unwrap().1);
         }
-        for i in 1..color_scale.len() {
-            let (low, low_color) = color_scale[i - 1];
-            let (high, high_color) = color_scale[i];
+
+        if value >= color_map.last().unwrap().0 {
+            return Some(color_map.last().unwrap().1);
+        }
+        if value == f64::NEG_INFINITY && product == "VEL" {
+            // RF
+            return Some(Rgba([102, 0, 102, 255]));
+        }
+        for i in 1..color_map.len() {
+            let (low, low_color) = color_map[i - 1];
+            let (high, high_color) = color_map[i];
             if value >= low && value < high {
                 let factor = (value - low) / (high - low);
                 let r = (low_color[0] as f64

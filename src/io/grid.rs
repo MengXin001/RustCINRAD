@@ -41,7 +41,7 @@ pub fn grid_interpolated(
     let cols = rows;
     let center = ((rows - 1) as f64 / 2.0, (cols - 1) as f64 / 2.0);
 
-    let scale = drange / rows as f64 * reso; //todo -> dpi
+    let scale = drange / rows as f64 * 1.0 * reso; //todo -> dpi
 
     let mut grid = vec![vec![f64::NAN; cols]; rows];
     for az_idx in 0..azimuths.len() - 1 {
@@ -76,6 +76,13 @@ pub fn grid_interpolated(
             let x_max_idx = ((x_max / scale) + center.0).ceil() as isize;
             let y_min_idx = (center.1 - (y_max / scale)).floor() as isize;
             let y_max_idx = (center.1 - (y_min / scale)).ceil() as isize;
+
+            let mesh = [
+                data[az_idx][range_idx],
+                data[az_idx + 1][range_idx],
+                data[az_idx][range_idx + 1],
+                data[az_idx + 1][range_idx + 1],
+            ];
             for xi in x_min_idx..=x_max_idx {
                 for yi in y_min_idx..=y_max_idx {
                     if xi >= 0 && xi < cols as isize && yi >= 0 && yi < rows as isize {
@@ -84,12 +91,12 @@ pub fn grid_interpolated(
                         let cx = (xi as f64 - center.0) * scale;
                         let cy = (center.1 - yi as f64) * scale;
                         if point_in_polygon((cx, cy), &corners) {
-                            let value = (data[az_idx][range_idx]
-                                + data[az_idx + 1][range_idx]
-                                + data[az_idx][range_idx + 1]
-                                + data[az_idx + 1][range_idx + 1])
-                                / 4.0;
-
+                            let value: f64;
+                            if mesh.iter().any(|&x| x == f64::NEG_INFINITY) {
+                                value = data[az_idx][range_idx]
+                            } else {
+                                value = mesh.iter().sum::<f64>() / 4.0;
+                            }
                             grid[yi][xi] = if grid[yi][xi].is_nan() {
                                 value
                             } else {
