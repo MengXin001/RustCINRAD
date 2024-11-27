@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN_NAME: RustCINRAD
+
+jobs:
+  build:
+    name: Build for ${{ matrix.build }} 
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [macOS, macOS-arm, Windows]
+        include:
+          - build: macOS
+            os: macos-14
+            rust: stable
+            target: x86_64-apple-darwin
+            release-file-suffix: _darwin_amd64.tar.gz
+          - build: macOS-arm
+            os: macos-14
+            rust: stable
+            target: aarch64-apple-darwin
+            release-file-suffix: _darwin_arm64.tar.gz
+          - build: Windows
+            os: windows-2019
+            rust: stable-x86_64-msvc
+            target: x86_64-pc-windows-msvc
+            release-file-suffix: _windows_amd64.7z
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: tagName
+        uses: olegtarasov/get-tag@v2.1.1
+
+      - name: 📦 Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: 🚚 Build
+        run: cargo build --verbose --release --target ${{ matrix.target }}
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Strip (macOS & Linux)
+        if: matrix.build == 'Linux' || matrix.build == 'macOS' || matrix.build == 'macOS-arm'
+        run: strip "target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
+
+      - name: 🚀 Package
+        shell: bash
+        run: |
+          mkdir -p dist temp
+          cp -r README.md temp/
+          cd temp
+          version="${{ steps.tagName.outputs.tag }}"
+          version_n="${version/v/}"
+          if [ "${{ matrix.build }}" = "windows" ]; then
+            cp "../target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe" ./
+            7z a -r "../dist/${{ env.BIN_NAME }}_${version_n}${{ matrix.release-file-suffix }}" *
+          else
+            cp "../target/${{ matrix.target }}/release/${{ env.BIN_NAME }}" ./
+            tar czf "../dist/${{ env.BIN_NAME }}_${version_n}${{ matrix.release-file-suffix }}" *
+          fi
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts
+          path: dist/**
+
+  Release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-artifacts
+          path: dist/
+
+      - name: Use Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          registry-url: https://registry.npmjs.org/
+          node-version: lts/*
+
+      - name: 📄 Generate Changelog
+        run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🪤 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

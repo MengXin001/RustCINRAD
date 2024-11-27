@@ -1,12 +1,13 @@
 use binread::prelude::*;
 use std::{collections::HashMap, default::Default};
+use tracing::error;
 #[derive(Debug)]
 pub struct StandardData {
     pub attributes: HashMap<String, String>,
     pub elevations: Vec<f64>,
     pub azimuth: Vec<Vec<f64>>,
     pub distance: Vec<Vec<Vec<Vec<f64>>>>,
-    pub data: Vec<Vec<Vec<Vec<f64>>>>,
+    pub data: HashMap<String, Vec<Vec<Vec<f64>>>>,
 }
 #[allow(dead_code)]
 impl StandardData {
@@ -22,7 +23,8 @@ impl StandardData {
         if tilt < self.elevations.len() {
             Ok(self.elevations[tilt])
         } else {
-            return Err(format!("tilt {} not in range", tilt).into());
+            error!("tilt {} not in range", tilt);
+            std::process::exit(1);
         }
     }
     pub fn get_tilt_all(&self) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
@@ -37,20 +39,16 @@ impl StandardData {
         drange: f64,
         dtype: &str,
     ) -> Result<Vec<Vec<f64>>, Box<dyn std::error::Error>> {
-        let data_idx: usize = match dtype {
-            "REF" => 0,
-            "VEL" => 1,
-            "SW" => 2,
-            _ => return Err(format!("{} not found", dtype).into()),
-        };
         let reso = self.get_reso(dtype)?;
-        if tilt >= self.data[data_idx].len() {
-            return Err(format!("tilt {} not in range", tilt).into());
+        if tilt >= self.data[dtype].len() {
+            error!("tilt {} not in range", tilt);
+            std::process::exit(1);
         }
-        let data_tilt = &self.data[data_idx][tilt];
+        let data_tilt = &self.data[dtype][tilt];
         let dmax = data_tilt[0].len() as f64 * reso;
         if drange > dmax {
-            return Err(format!("{}km out of dmax {}km", drange, dmax).into());
+            error!("{}km out of dmax {}km", drange, dmax);
+            std::process::exit(1);
         } else if drange == dmax {
             return Ok(data_tilt.to_vec());
         } else {
@@ -67,7 +65,6 @@ impl StandardData {
 impl Default for StandardData {
     fn default() -> Self {
         let mut attributes = HashMap::new();
-        attributes.insert("range".to_string(), "230".to_string());
         attributes.insert("scan_time".to_string(), "2020-05-17 11:00:28".to_string());
         attributes.insert("site_code".to_string(), "Z9532".to_string());
         attributes.insert("site_name".to_string(), "青岛".to_string());
@@ -84,7 +81,7 @@ impl Default for StandardData {
             elevations: vec![],
             azimuth: vec![],
             distance: vec![],
-            data: vec![],
+            data: HashMap::new(),
         }
     }
 }

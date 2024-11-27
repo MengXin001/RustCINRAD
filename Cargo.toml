@@ -4,13 +4,15 @@ version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[interact]
-name = "interact"
-crate-type = ["cdylib"]
 
 [dependencies]
 binread = "2.2.0"
 image = "0.24.5"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 ndarray = "0.15.6"
 serde_json = "1.0.117"
+clap = { version = "4.5.21", features = ["derive"] }
 
+[dev-dependencies]
+criterion = "0.3"

@@ -22,6 +22,22 @@ f.get_reso(dtype); //获取径向分辨率
 > Ok(1.0)
 f.get_data(tilt, drange, dtype); //获取数据
 ```
+### CLI Build (Preview)
+```rust
+> RustCINRAD -h
+PyCINRAD with Rust to decode CINRAD data and visualize.
+
+Usage: RustCINRAD [OPTIONS]
+
+Options:
+  -f, --file <FILE>        [default: Z_RADR_I_Z9515_20160623043100_O_DOR_SA_CAP.bin]
+  -r, --drange <RANGE>     [default: 460]
+  -t, --tilt <TILT>        [default: 0]
+  -d, --dtype <DTYPE>      [default: REF]
+  -o, --output <FILENAME>  [default: Z_RADR_I_Z9515_20160623043100_O_DOR_SA_R.png]
+  -h, --help               Print help
+  -V, --version            Print version
+```
 ### The latest progress
 
 ![](./radar.png)

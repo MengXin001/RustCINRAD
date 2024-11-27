@@ -5,15 +5,19 @@ use std::io::Cursor;
 
 use crate::io;
 use crate::io::dtype::*;
+use tracing::{error, info};
 
 const CON: f64 = (180.0 / 4096.0) * 0.125;
 
 #[allow(non_snake_case, unused_variables, unused_assignments)]
 pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
-    let data = std::fs::read(path).expect("文件读取失败");
-    let radar_code = io::base::infer_type(path).unwrap();
+    let data = std::fs::read(path).unwrap_or_else(|e| {
+        error!("failed to read file: {}", e);
+        std::process::exit(1);
+    });
+    let site_code = io::base::infer_type(path).unwrap();
     let radarinfo = io::base::get_radar_info();
-    let station = &radarinfo[radar_code.clone()];
+    let station = &radarinfo[site_code.clone()];
     let site_name = station[0].as_str().unwrap().to_string();
     let centerlon = station[1].as_f64().unwrap();
     let centerlat = station[2].as_f64().unwrap();
@@ -28,9 +32,6 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     let mut Vreso: f64 = 0.25;
 
     let mut temp_data: Vec<(f64, Vec<f64>, Vec<f64>, Vec<f64>)> = Vec::with_capacity(count);
-    let mut r_distances = Vec::new();
-    let mut v_distances = Vec::new();
-    let mut sw_distances = Vec::new();
     let mut elevations = Vec::new();
     let mut REF = Vec::new();
     let mut VEL = Vec::new();
@@ -109,21 +110,6 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
             .collect();
         temp_data.push((azimuth, r, v, w));
 
-        let r_distance: Vec<f64> = (0..s_info.gate_num_r)
-            .map(|x| x as f64 * s_info.gate_length_r as f64)
-            .collect();
-
-        let v_distance: Vec<f64> = (0..s_info.gate_num_v)
-            .map(|x| x as f64 * s_info.gate_length_v as f64)
-            .collect();
-
-        let sw_distance: Vec<f64> = (0..s_info.gate_num_v)
-            .map(|x| x as f64 * s_info.gate_length_v as f64)
-            .collect();
-
-        r_distances.push(r_distance);
-        v_distances.push(v_distance);
-        sw_distances.push(sw_distance);
         if s_info.radial_state == 2 || s_info.radial_state == 4 {
             elevations.push(elevation);
             let (mut tempaz, mut tempr, mut tempv, mut tempsw) = (
@@ -153,6 +139,9 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         .insert("site_name".to_string(), site_name);
     out_data
         .attributes
+        .insert("site_code".to_string(), site_code);
+    out_data
+        .attributes
         .insert("site_latitude".to_string(), centerlat.to_string());
     out_data
         .attributes
@@ -174,7 +163,9 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         .insert("v_reso".to_string(), Vreso.to_string());
     out_data.azimuth = azimuths;
     out_data.elevations = elevations;
-    out_data.data = vec![REF.clone(), VEL.clone(), SW.clone()];
-    print!("read completed");
+    out_data.data.insert("REF".to_string(), REF.clone());
+    out_data.data.insert("VEL".to_string(), VEL.clone());
+    out_data.data.insert("SW".to_string(), SW.clone());
+    info!("read completed");
     Ok(out_data)
 }
