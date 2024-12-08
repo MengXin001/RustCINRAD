@@ -33,6 +33,8 @@ struct Cli {
         default_value = "Z_RADR_I_Z9515_20160623043100_O_DOR_SA_R.png"
     )]
     output: String,
+    #[arg(short = 'p', long, value_name = "PREVIEW", default_value = "true")]
+    preview: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,36 +44,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "---------RustCINRAD CLI Build{}---------",
         env!("CARGO_PKG_VERSION")
     );
-    let (file_path, drange, tilt, dtype, output) =
-        (args.file, args.drange, args.tilt, &args.dtype, &args.output);
-    info!("read {}", file_path);
-    let start = Instant::now();
-    let f = io::level2::SAB_reader(&file_path)?;
+    let (file_path, drange, tilt, dtype, output, preview) = (
+        args.file,
+        args.drange,
+        args.tilt,
+        &args.dtype,
+        &args.output,
+        args.preview,
+    );
+    if !preview {
+        info!("read {}", file_path);
+        let start = Instant::now();
+        let f = io::level2::SAB_reader(&file_path)?;
 
-    let centerlon = &f.attributes["site_longitude"];
-    let centerlat = &f.attributes["site_latitude"];
-    let elevation = f.get_tilt(tilt)?;
-    let reso = f.get_reso(dtype)?;
-    info!(
-        "\n第{}层仰角{}deg，数据范围{}km，数据分辨率{}km",
-        tilt, elevation, drange, reso
-    );
-    //let r = get_range(drange, reso);
-    let azimuth = f.get_azimuth(tilt)?;
-    let data = f.get_data(tilt, drange, dtype)?;
-    /*let (actuallon, actuallat) =
-    get_coordinate(r, azimuth.to_vec(), elevation, centerlon, centerlat, true);*/
-    let grid_data: Vec<Vec<f64>> = io::grid::grid_interpolated(data, azimuth, drange, reso).unwrap();
-    visualize::ppi::ppi(grid_data, 3000, 3000, output, dtype);
-    info!(
-        "站点: {}/{} {}N, {}E/{}m",
-        &f.attributes["site_code"],
-        &f.attributes["site_name"],
-        centerlat,
-        centerlon,
-        f.attributes["site_altitude"]
-    );
-    let duration = start.elapsed();
-    info!("运行时间: {:?}", duration);
+        let elevation = f.get_tilt(tilt)?;
+        let reso = f.get_reso(dtype)?;
+        info!(
+            "\n第{}层仰角{}deg，数据范围{}km，数据分辨率{}km",
+            tilt, elevation, drange, reso
+        );
+        //let r = get_range(drange, reso);
+        let azimuth = f.get_azimuth(tilt)?;
+        let data = f.get_data(tilt, drange, dtype)?;
+        /*let (actuallon, actuallat) =
+        get_coordinate(r, azimuth.to_vec(), elevation, centerlon, centerlat, true);*/
+        let grid_data: Vec<Vec<f64>> =
+            io::grid::grid_interpolated(data, azimuth, drange, reso).unwrap();
+        visualize::ppi::ppi(grid_data, 3000, 3000, output, dtype);
+        info!(
+            "站点: {}/{} {}N, {}E/{}m",
+            &f.attributes["site_code"],
+            &f.attributes["site_name"],
+            &f.attributes["site_latitude"],
+            &f.attributes["site_longitude"],
+            f.attributes["site_altitude"]
+        );
+
+        let duration = start.elapsed();
+        info!("运行时间: {:?}", duration);
+    } else {
+        info!("RUNNING PREVIEW MODE");
+        let fmt_file_path = "Z_RADR_I_Z9375_20241028094043_O_DOR_SA_CAP_FMT.bin";
+        info!("read {}", fmt_file_path);
+        let start = Instant::now();
+        let f = io::level2::FMT_SAB_reader(fmt_file_path)?;
+        info!(
+            "站点: {}/{} {}N, {}E/{}m",
+            &f.attributes["site_code"],
+            &f.attributes["site_name"],
+            &f.attributes["site_latitude"],
+            &f.attributes["site_longitude"],
+            f.attributes["site_altitude"]
+        );
+        let duration = start.elapsed();
+        info!("运行时间: {:?}", duration);
+    }
     Ok(())
 }

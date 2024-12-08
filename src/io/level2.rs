@@ -169,3 +169,51 @@ pub fn SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     info!("read completed");
     Ok(out_data)
 }
+
+#[allow(non_snake_case, unused_variables, unused_assignments)]
+pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
+    let data = std::fs::read(path).unwrap_or_else(|e| {
+        error!("failed to read file: {}", e);
+        std::process::exit(1);
+    });
+    let mut cursor = Cursor::new(data);
+    let fmt_sab_data: FMT_SAB = cursor.read_le()?;
+    let site_code =
+        String::from_utf8_lossy(fmt_sab_data.common_blocks.site_config.site_code.as_ref())
+            .trim_end_matches('\0')
+            .to_string();
+    println!("{:?}", site_code);
+    let radarinfo = io::base::get_radar_info();
+    let station = &radarinfo[site_code.clone()];
+    let site_name = station[0].as_str().unwrap().to_string();
+    let centerlon = station[1].as_f64().unwrap();
+    let centerlat = station[2].as_f64().unwrap();
+    let radartype =
+        io::base::get_type(fmt_sab_data.common_blocks.site_config.radar_type).to_string();
+    let site_altitude = station[4].as_f64().unwrap();
+    let vcp_mode = fmt_sab_data.common_blocks.task_config.task_name; //?
+
+    let mut out_data = StandardData::default();
+    out_data
+        .attributes
+        .insert("site_name".to_string(), site_name);
+    out_data
+        .attributes
+        .insert("site_code".to_string(), site_code);
+    out_data
+        .attributes
+        .insert("site_latitude".to_string(), centerlat.to_string());
+    out_data
+        .attributes
+        .insert("site_longitude ".to_string(), centerlon.to_string());
+    out_data
+        .attributes
+        .insert("site_altitude".to_string(), site_altitude.to_string());
+    out_data
+        .attributes
+        .insert("site_type".to_string(), radartype);
+    out_data
+        .attributes
+        .insert("task".to_string(), "Unknown".to_string());
+    Ok(out_data)
+}
