@@ -1,5 +1,5 @@
 use binread::prelude::*;
-use std::{collections::HashMap, default::Default, vec};
+use std::{collections::HashMap, default::Default, io::Cursor, vec};
 use tracing::error;
 #[derive(Debug)]
 pub struct StandardData {
@@ -149,30 +149,31 @@ pub struct S_INFO {
 }
 
 #[derive(Debug, BinRead)]
-#[allow(non_camel_case_types)]
-pub struct FMT_SAB {
-    pub common_blocks: CommonBlocks,
-    pub radial_blocks: u8, //res
-}
-
-#[derive(Debug, BinRead)]
 pub struct CommonBlocks {
     pub generic_header: GenericHeader,
     pub site_config: Siteconfig,
     pub task_config: Taskconfig,
-    pub cut_configs: Cutconfig,
+    #[br(count = task_config.cut_number)]
+    pub cut_config: Vec<Cutconfig>,
 }
 
 #[derive(Debug, BinRead)]
 pub struct GenericHeader {
-    #[br(count = 32)]
-    pub spare: Vec<u8>,
+    pub magic_num: i32,
+    pub major_version: u16,
+    pub minor_version: u16,
+    pub generic_type: i32,
+    pub product_type: i32,
+    #[br(count = 16)]
+    pub reserved: Vec<u8>,
 }
 
 #[derive(Debug, BinRead)]
 pub struct Siteconfig {
-    pub site_code: [u8; 8],
-    pub site_name: [u8; 32],
+    #[br(count = 8)]
+    pub site_code: Vec<u8>,
+    #[br(count = 32)]
+    pub site_name: Vec<u8>,
     pub latitude: f32,
     pub longitude: f32,
     pub antenna_height: i32,
@@ -183,62 +184,127 @@ pub struct Siteconfig {
     pub rda_version: i32,
     pub radar_type: i16,
     pub antenna_gain: i16,
+    pub trans_loss: i16,
+    pub recv_loss: i16,
+    pub other_loss: i16,
+    #[br(count = 46)]
+    pub res2: Vec<u8>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Debug, BinRead)]
 pub struct Taskconfig {
     #[br(count = 32)]
     pub task_name: Vec<u8>,
     #[br(count = 128)]
-    pub task_description: Vec<u8>,
-    pub polarization_type: i32,
+    pub task_dsc: Vec<u8>,
+    pub polar_type: i32,
     pub scan_type: i32,
     pub pulse_width: i32,
     pub scan_start_time: i32,
     pub cut_number: i32,
-    pub horizontal_noise: f32,
-    pub vertical_noise: f32,
-    pub horizontal_calibration: f32,
-    pub vertical_calibration: f32,
-    pub horizontal_noise_temperature: f32,
-    pub vertical_noise_temperature: f32,
-    pub zdr_calibration: f32,
-    pub phidp_calibration: f32,
-    pub ldr_calibration: f32, 
+    pub hori_noise: f32,
+    pub vert_noise: f32,
+    pub hori_cali: f32,
+    pub vert_cali: f32,
+    pub hori_tmp: f32,
+    pub vert_tmp: f32,
+    pub ZDR_cali: f32,
+    pub PHIDP_cali: f32,
+    pub LDR_cali: f32,
     #[br(count = 40)]
-    pub res: Vec<u8>,
+    pub res3: Vec<u8>,
 }
 
 #[derive(Debug, BinRead)]
 pub struct Cutconfig {
-    #[br(count = 256)]
-    pub config: Vec<u8>,
+    pub process_mode: i32,
+    pub wave_form: i32,
+    pub prf1: f32,
+    pub prf2: f32,
+    pub dealias_mode: i32,
+    pub azimuth: f32,
+    pub elev: f32,
+    pub start_angle: f32,
+    pub end_angle: f32,
+    pub angular_reso: f32,
+    pub scan_spd: f32,
+    pub log_reso: i32,
+    pub dop_reso: i32,
+    pub max_range1: i32,
+    pub max_range2: i32,
+    pub start_range: i32,
+    pub sample1: i32,
+    pub sample2: i32,
+    pub phase_mode: i32,
+    pub atmos_loss: f32,
+    pub nyquist_spd: f32,
+    pub moments_mask: i64,
+    pub moments_size_mask: i64,
+    pub misc_filter_mask: i32,
+    pub sqi_thres: f32,
+    pub sig_thres: f32,
+    pub csr_thres: f32,
+    pub log_thres: f32,
+    pub cpa_thres: f32,
+    pub pmi_thres: f32,
+    pub dplog_thres: f32,
+    #[br(count = 4)]
+    pub res_thres: Vec<u8>,
+    pub dbt_mask: i32,
+    pub dbz_mask: i32,
+    pub vel_mask: i32,
+    pub sw_mask: i32,
+    pub dp_mask: i32,
+    #[br(count = 12)]
+    pub res_mask: Vec<u8>,
+    pub scan_sync: i32,
+    pub direction: i32,
+    pub ground_clutter_classifier_type: i16,
+    pub ground_clutter_filter_type: i16,
+    pub ground_clutter_filter_notch_width: i16,
+    pub ground_clutter_filter_window: i16,
+    #[br(count = 72)]
+    pub res4: Vec<u8>,
 }
 
 #[derive(Debug, BinRead)]
 pub struct RadialBlock {
     pub radial_header: RadialHeader,
-    #[br(count = radial_header.length_of_data)]
-    pub moment_data: Vec<u8>,
+    #[br(count = radial_header.moment_number)]
+    pub moment_data: Vec<MomentData>,
 }
 
 #[derive(Debug, BinRead)]
 pub struct RadialHeader {
     pub radial_state: i32,
     pub spot_blank: i32,
-    pub sequence_number: i32,
+    pub seq_number: i32,
     pub radial_number: i32,
     pub elevation_number: i32,
     pub azimuth: f32,
     pub elevation: f32,
     pub seconds: i32,
     pub microseconds: i32,
-    pub length_of_data: i32, //数据长度
-    pub moment_number: i32, //类型数量 
-    #[br(count = 2)]
-    pub res1: Vec<u8>,
-    pub horizontal_noise: i16,
-    pub vertical_noise: i16,
-    #[br(count = 14)]
-    pub res2: Vec<u8>,
+    pub data_length: i32,
+    pub moment_number: i32,
+    pub res5: i16,
+    pub hori_est_noise: i16,
+    pub vert_est_noise: i16,
+    pub zip_type: u8,
+    #[br(count = 13)]
+    pub res6: Vec<u8>,
+}
+#[derive(Debug, BinRead)]
+pub struct MomentData {
+    pub data_type: i32,
+    pub scale: i32,
+    pub offset: i32,
+    pub bin_length: i16,
+    pub flags: i16,
+    pub length: i32,
+    #[br(count = 12)]
+    pub res: Vec<u8>,
+    #[br(count = length)]
+    pub data: Vec<u8>,
 }

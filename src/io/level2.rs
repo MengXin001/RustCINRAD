@@ -177,22 +177,30 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         std::process::exit(1);
     });
     let mut cursor = Cursor::new(data);
-    let fmt_sab_data: FMT_SAB = cursor.read_le()?;
-    let site_code =
-        String::from_utf8_lossy(fmt_sab_data.common_blocks.site_config.site_code.as_ref())
-            .trim_end_matches('\0')
-            .to_string();
-    println!("{:?}", site_code);
+    let commonblocks: CommonBlocks = cursor.read_le()?;
+    let site_code = String::from_utf8_lossy(commonblocks.site_config.site_code.as_ref())
+        .trim_end_matches('\0')
+        .to_string();
     let radarinfo = io::base::get_radar_info();
     let station = &radarinfo[site_code.clone()];
     let site_name = station[0].as_str().unwrap().to_string();
     let centerlon = station[1].as_f64().unwrap();
     let centerlat = station[2].as_f64().unwrap();
-    let radartype =
-        io::base::get_type(fmt_sab_data.common_blocks.site_config.radar_type).to_string();
+    let radartype = io::base::get_type(commonblocks.site_config.radar_type).to_string();
     let site_altitude = station[4].as_f64().unwrap();
-    let vcp_mode = fmt_sab_data.common_blocks.task_config.task_name; //?
+    let vcp_mode = String::from_utf8_lossy(commonblocks.task_config.task_name.as_ref())
+        .trim_end_matches('\0')
+        .to_string();
+    println!("{:?}", vcp_mode);
 
+    let mut fmt_sab_data = Vec::new();
+    // todo error process
+    while let Ok(d) = cursor.read_le::<RadialBlock>() {
+        fmt_sab_data.push(d);
+        if fmt_sab_data.last().unwrap().radial_header.radial_state == 4 {
+            break;
+        }
+    }
     let mut out_data = StandardData::default();
     out_data
         .attributes
@@ -212,8 +220,6 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     out_data
         .attributes
         .insert("site_type".to_string(), radartype);
-    out_data
-        .attributes
-        .insert("task".to_string(), "Unknown".to_string());
+    out_data.attributes.insert("task".to_string(), vcp_mode);
     Ok(out_data)
 }
