@@ -196,7 +196,6 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     let mut v = Vec::new();
     let mut w = Vec::new();
     let mut az = Vec::new();
-    let mut res = Vec::new();
     let mut REF = Vec::new();
     let mut VEL = Vec::new();
     let mut SW = Vec::new();
@@ -224,14 +223,20 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
             let value: Vec<f64> = j
                 .data
                 .iter()
-                .map(|&x| (x as f64 - j.offset as f64) / j.scale as f64)
+                .map(|&x| {
+                    if x > 5 {
+                        (x as f64 - j.offset as f64) / j.scale as f64
+                    } else {
+                        f64::NAN
+                    }
+                })
                 .collect();
 
             match dtype {
                 "REF" => r.push(value),
                 "VEL" => v.push(value),
                 "SW" => w.push(value),
-                _ => res.push(value),
+                _ => {},
             }
             az.push(azimuth);
         }
@@ -273,5 +278,6 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
     out_data.data.insert("REF".to_string(), REF.clone());
     out_data.data.insert("VEL".to_string(), VEL.clone());
     out_data.data.insert("SW".to_string(), SW.clone());
+    info!("read completed");
     Ok(out_data)
 }
