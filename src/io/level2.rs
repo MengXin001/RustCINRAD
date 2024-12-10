@@ -1,11 +1,10 @@
 use binread::prelude::*;
-use core::f64;
 use std::error::Error;
 use std::io::Cursor;
 
 use crate::io;
 use crate::io::dtype::*;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 const CON: f64 = (180.0 / 4096.0) * 0.125;
 
@@ -192,13 +191,61 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         .trim_end_matches('\0')
         .to_string();
     println!("{:?}", vcp_mode);
-
+    // todo algorithm enhancement
+    let mut r = Vec::new();
+    let mut v = Vec::new();
+    let mut w = Vec::new();
+    let mut az = Vec::new();
+    let mut res = Vec::new();
+    let mut REF = Vec::new();
+    let mut VEL = Vec::new();
+    let mut SW = Vec::new();
+    let mut azimuths = Vec::new();
+    let mut elevations = Vec::new();
+    let temp_data: Vec<(f64, Vec<f64>, Vec<f64>, Vec<f64>)> = Vec::new();
     let mut fmt_sab_data = Vec::new();
-    // todo error process
-    while let Ok(d) = cursor.read_le::<RadialBlock>() {
-        fmt_sab_data.push(d);
-        if fmt_sab_data.last().unwrap().radial_header.radial_state == 4 {
-            break;
+    while cursor.position() < cursor.get_ref().len() as u64 {
+        match cursor.read_le::<RadialBlock>() {
+            Ok(radial_block) => {
+                fmt_sab_data.push(radial_block);
+            }
+
+            Err(e) => {
+                error!("{}", e);
+            }
+        }
+    }
+    for k in fmt_sab_data {
+        let elevation = k.radial_header.elevation as f64;
+        let azimuth = k.radial_header.azimuth as f64;
+        for j in k.moment_data {
+            let dtype = io::base::get_fmt_dtype(j.data_type.try_into().unwrap());
+
+            let value: Vec<f64> = j
+                .data
+                .iter()
+                .map(|&x| (x as f64 - j.offset as f64) / j.scale as f64)
+                .collect();
+
+            match dtype {
+                "REF" => r.push(value),
+                "VEL" => v.push(value),
+                "SW" => w.push(value),
+                _ => res.push(value),
+            }
+            az.push(azimuth);
+        }
+
+        if k.radial_header.radial_state == 2 || k.radial_header.radial_state == 4 {
+            elevations.push(elevation);
+            REF.push(r.clone());
+            VEL.push(v.clone());
+            SW.push(w.clone());
+            azimuths.push(az.clone());
+            r.clear();
+            w.clear();
+            v.clear();
+            az.clear();
         }
     }
     let mut out_data = StandardData::default();
@@ -221,5 +268,10 @@ pub fn FMT_SAB_reader(path: &str) -> Result<StandardData, Box<dyn Error>> {
         .attributes
         .insert("site_type".to_string(), radartype);
     out_data.attributes.insert("task".to_string(), vcp_mode);
+    out_data.azimuth = azimuths;
+    out_data.elevations = elevations;
+    out_data.data.insert("REF".to_string(), REF.clone());
+    out_data.data.insert("VEL".to_string(), VEL.clone());
+    out_data.data.insert("SW".to_string(), SW.clone());
     Ok(out_data)
 }

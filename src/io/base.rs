@@ -46,3 +46,34 @@ pub fn get_type(type_id: i16) -> &'static str {
         _ => "Unknown",
     }
 }
+
+pub fn get_fmt_dtype(type_id: i16) -> &'static str {
+    match type_id {
+        1 => "dBT",
+        2 => "REF", //dBZ
+        3 => "VEL", //V
+        4 => "SW", //W
+        5 => "SQI",
+        6 => "CPA",
+        7 => "ZDR",
+        8 => "LDR",
+        9 => "CC",
+        10 => "DP",
+        11 => "KDP",
+        12 => "CP",
+        14 => "HCL",
+        15 => "CF",
+        16 => "SNRH",
+        17 => "SNRV",
+        19 => "POTS",
+        20 => "RES",
+        21 => "COP",
+        26 => "VELSZ",
+        27 => "DR",
+        32 => "Zc",
+        33 => "Vc",
+        34 => "Wc",
+        35 => "ZDRc",
+        _ => "Reserved",
+    }
+}

@@ -72,9 +72,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             io::grid::grid_interpolated(data, azimuth, drange, reso).unwrap();
         visualize::ppi::ppi(grid_data, 3000, 3000, output, dtype);
         info!(
-            "站点: {}/{} {}N, {}E/{}m",
+            "站点: {}/{}/{} {}N, {}E/{}m",
             &f.attributes["site_code"],
             &f.attributes["site_name"],
+            &f.attributes["site_type"],
             &f.attributes["site_latitude"],
             &f.attributes["site_longitude"],
             f.attributes["site_altitude"]
@@ -89,13 +90,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let start = Instant::now();
         let f = io::level2::FMT_SAB_reader(fmt_file_path)?;
         info!(
-            "站点: {}/{} {}N, {}E/{}m",
+            "站点: {}/{}/{} {}N, {}E/{}m",
             &f.attributes["site_code"],
             &f.attributes["site_name"],
+            &f.attributes["site_type"],
             &f.attributes["site_latitude"],
             &f.attributes["site_longitude"],
             f.attributes["site_altitude"]
         );
+        let elevation = f.get_tilt(tilt)?;
+        let reso = f.get_reso(dtype)?;
+        info!(
+            "\n第{}层仰角{}deg，数据范围{}km，数据分辨率{}km",
+            tilt, elevation, drange, reso
+        );
+        let azimuth = f.get_azimuth(tilt)?;
+        let data = f.get_data(tilt, drange, dtype)?;
+        let grid_data: Vec<Vec<f64>> =
+            io::grid::grid_interpolated(data, azimuth, drange, reso).unwrap();
+        visualize::ppi::ppi(grid_data, 3000, 3000, output, dtype);
         let duration = start.elapsed();
         info!("运行时间: {:?}", duration);
     }

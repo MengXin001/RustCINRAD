@@ -1,12 +1,11 @@
 use binread::prelude::*;
-use std::{collections::HashMap, default::Default, io::Cursor, vec};
+use std::{collections::HashMap, default::Default};
 use tracing::error;
 #[derive(Debug)]
 pub struct StandardData {
     pub attributes: HashMap<String, String>,
     pub elevations: Vec<f64>,
     pub azimuth: Vec<Vec<f64>>,
-    pub distance: Vec<Vec<Vec<Vec<f64>>>>,
     pub data: HashMap<String, Vec<Vec<Vec<f64>>>>,
 }
 #[allow(dead_code)]
@@ -80,7 +79,6 @@ impl Default for StandardData {
             attributes: attributes,
             elevations: vec![],
             azimuth: vec![],
-            distance: vec![],
             data: HashMap::new(),
         }
     }
@@ -268,14 +266,14 @@ pub struct Cutconfig {
     pub res4: Vec<u8>,
 }
 
-#[derive(Debug, BinRead)]
+#[derive(Debug, BinRead, Clone)]
 pub struct RadialBlock {
     pub radial_header: RadialHeader,
     #[br(count = radial_header.moment_number)]
     pub moment_data: Vec<MomentData>,
 }
 
-#[derive(Debug, BinRead)]
+#[derive(Debug, BinRead, Clone)]
 pub struct RadialHeader {
     pub radial_state: i32,
     pub spot_blank: i32,
@@ -295,7 +293,7 @@ pub struct RadialHeader {
     #[br(count = 13)]
     pub res6: Vec<u8>,
 }
-#[derive(Debug, BinRead)]
+#[derive(Debug, BinRead, Clone)]
 pub struct MomentData {
     pub data_type: i32,
     pub scale: i32,
