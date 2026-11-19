@@ -1,45 +1,66 @@
+# RustCINRAD
+
 Decode CINRAD (China New Generation Weather Radar) data
 
-[PyCINRAD](https://github.com/CyanideCN/PyCINRAD/)
+This project is a covered work of [PyCINRAD](https://github.com/CyanideCN/PyCINRAD/), distributed under the terms of the GNU General Public License 3.0.
 
-## Usage Introduction
-### io::level2
-获取仰角
-```rust
-let tilt = 0;
-f.get_azimuth(tilt); //获取特定仰角方位角
-f.get_tilt(tilt); //获取特定仰角高度
-> Ok(0.4833984375)
-f.get_tilt_all(); //获取所有仰角高度
-> Ok([0.4833984375, 0.4833984375, 1.40625, 1.4501953125, 2.4169921875, 3.33984375, 4.306640625, 5.9765625, 9.84375, 14.5458984375, 19.51171875])
+
+## Build
+
+```powershell
+cargo build --release
+
+./RustCINRAD inspect Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2
+./RustCINRAD plot Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2
+./RustCINRAD plot Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --dtype VEL --tilt 1
+./RustCINRAD plot Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --dtype CR
+./RustCINRAD plot Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --dtype CAPPI --height-m 3000
+./RustCINRAD plot Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --dtype RR --png rain-rate.png
+./RustCINRAD volume Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --geotiff volume.tif
+./RustCINRAD plot DUAL_POL.bin --dtype REF --attenuation --band C --png corrected.png
+./RustCINRAD batch A.bin B.bin --dtype ET --output-dir output
+./RustCINRAD accumulate EARLIER.bin LATER.bin --png rain.png --geotiff rain.tif
+./RustCINRAD section Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin.bz2 --path 114 38.5 115 39
 ```
-获取数据
-```rust
-let tilt = 0;
-let drange = 230;
-let dtype = "REF";
-f.get_reso(dtype); //获取径向分辨率
-> Ok(1.0)
-f.get_data(tilt, drange, dtype); //获取数据
+
+- `--dtype` 支持 `REF/TREF/VEL/SW/ZDR/RHO/PHI/KDP/HCL/CR/ET/VIL/VILD/CAPPI/RR/RAIN`，实际可用要素由基数据决定。`inspect` 可查看 `scan N: ... deg` 及每层可用要素。
+- 不指定 `--tilt` 时，选择基数据中第一个包含该要素的层。
+
+### Format
+
+| 支持格式                             |
+|-------------------------------------|
+| SAB/SA/SB、CAB/CA/CB                |
+| CC                                  |
+| CD/SC                               |
+| CC2                                 |
+| RSTM/FMT/标准相控阵                  |
+| PA相控阵                            |
+| SWAN                                |
+| MOC                                 |
+| PUP/ROSE 径向产品                    |
+| 旧 PUP/PUP 栅格/表格/风暴跟踪/冰雹/CAPPI/VWP产品 |
+
+### Log
+```powershell
+$env:RUST_LOG = "rustcinrad=debug,rustcinrad_app=debug"
+$env:RUST_LOG = "warn"
+
 ```
-### CLI Build (Preview)
-```rust
-> RustCINRAD -h
-PyCINRAD with Rust to decode CINRAD data and visualize.
-
-Usage: RustCINRAD [OPTIONS]
-
-Options:
-  -f, --file <FILE>        [default: Z_RADR_I_Z9515_20160623043100_O_DOR_SA_CAP.bin]
-  -r, --drange <RANGE>     [default: 460]
-  -t, --tilt <TILT>        [default: 0]
-  -d, --dtype <DTYPE>      [default: REF]
-  -o, --output <FILENAME>  [default: Z_RADR_I_Z9515_20160623043100_O_DOR_SA_R.png]
-  -h, --help               Print help
-  -V, --version            Print version
+## Package
+```rust,no_run
+use rustcinrad::{read_path, ReadOptions, FieldId, projection::BeamModel};
+let data = read_path(" Z_RADR_I_Z1234_11451419198100_O_DOR_CC_CAP.bin", &ReadOptions::default())?;
+let beam = BeamModel::default();
+let spec = data.grid_spec(0, FieldId::Reflectivity, beam)?;
+let grid = data.grid(0, FieldId::Reflectivity, spec, beam)?;
+rustcinrad::export::write_geotiff(&grid, "REF.tif")?;
+# Ok::<(), rustcinrad::RadarError>(())
 ```
-### The latest progress
+## Acknowledgements
+The project is based on:
+- [PyCINRAD](https://github.com/CyanideCN/PyCINRAD/)
 
-![](./radar.png)
-![](./radar_VEL.png)
-![風間白花](./momo_aio.png)
+The project is also inspired by:
+- [metradar](https://github.com/nmcdev/metradar)
+- [pycwr](https://github.com/YvZheng/pycwr)

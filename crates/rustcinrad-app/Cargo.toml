@@ -1,0 +1,18 @@
+[package]
+name = "rustcinrad-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+rustcinrad.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+temp-dir.workspace = true
+

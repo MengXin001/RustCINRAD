@@ -19,20 +19,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [macOS, macOS-arm, Windows]
+        build: [Linux, macOS-arm, Windows]
         include:
-          - build: macOS
-            os: macos-14
+          - build: Linux
+            os: ubuntu-latest
             rust: stable
-            target: x86_64-apple-darwin
-            release-file-suffix: _darwin_amd64.tar.gz
+            target: x86_64-unknown-linux-gnu
+            release-file-suffix: _linux_amd64.tar.gz
           - build: macOS-arm
-            os: macos-14
+            os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
             release-file-suffix: _darwin_arm64.tar.gz
           - build: Windows
-            os: windows-2019
+            os: windows-latest
             rust: stable-x86_64-msvc
             target: x86_64-pc-windows-msvc
             release-file-suffix: _windows_amd64.7z
@@ -53,6 +53,10 @@ jobs:
           profile: minimal
           override: true
           target: ${{ matrix.target }}
+
+      - name: Install Linux font build dependencies
+        if: matrix.build == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
 
       - name: 🚚 Build
         run: cargo build --verbose --release --target ${{ matrix.target }}
@@ -79,10 +83,11 @@ jobs:
             tar czf "../dist/${{ env.BIN_NAME }}_${version_n}${{ matrix.release-file-suffix }}" *
           fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v7
         with:
-          name: release-artifacts
-          path: dist/**
+          name: release-artifacts-${{ matrix.build }}
+          path: dist/*
+          if-no-files-found: error
 
   Release:
     needs: build
@@ -92,10 +97,11 @@ jobs:
         with:
           fetch-depth: 0 
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v8
         with:
-          name: release-artifacts
+          pattern: release-artifacts-*
           path: dist/
+          merge-multiple: true
 
       - name: Use Node.js LTS
         uses: actions/setup-node@v4

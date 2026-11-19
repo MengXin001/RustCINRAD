@@ -1,0 +1,2 @@
+[source.aliyun]
+registry = "sparse+https://mirrors.aliyun.com/crates.io-index/"

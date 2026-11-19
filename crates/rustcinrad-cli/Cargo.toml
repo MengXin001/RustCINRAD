@@ -1,0 +1,25 @@
+[package]
+name = "rustcinrad-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+rustcinrad.workspace = true
+rustcinrad-app.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+temp-dir.workspace = true
+
+[[bin]]
+name = "RustCINRAD"
+path = "src/main.rs"
+doc = false

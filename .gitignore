@@ -1,4 +1,9 @@
 /target
 /test
 *bin
+*bz2
+*gz
+*tar
 .DS_Store
+.agents
+/tests/*

@@ -1,0 +1,33 @@
+[package]
+name = "rustcinrad"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+binrw.workspace = true
+bzip2.workspace = true
+chrono.workspace = true
+encoding_rs.workspace = true
+flate2.workspace = true
+font-kit.workspace = true
+geographiclib-rs.workspace = true
+image.workspace = true
+nalgebra.workspace = true
+ndarray.workspace = true
+pathfinder_geometry.workspace = true
+plotters.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tiff.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+temp-dir.workspace = true
